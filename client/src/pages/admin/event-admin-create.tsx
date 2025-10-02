@@ -6,16 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/lib/auth';
 import { ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
+import { useQuery } from '@tanstack/react-query';
+import type { Event } from '@shared/schema';
+import { apiRequest } from '@/lib/queryClient';
 
 const formSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   email: z.string().email('Invalid email address'),
   fullName: z.string().min(2, 'Full name is required'),
+  eventId: z.string().min(1, 'Please select an event'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -23,7 +27,10 @@ type FormData = z.infer<typeof formSchema>;
 export default function EventAdminCreatePage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { register: registerUser } = useAuth();
+
+  const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
+    queryKey: ['/api/events'],
+  });
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -32,16 +39,31 @@ export default function EventAdminCreatePage() {
       password: '',
       email: '',
       fullName: '',
+      eventId: '',
     },
   });
 
   async function onSubmit(data: FormData) {
     try {
-      await registerUser(data.username, data.password, data.email, data.fullName, 'event_admin');
+      // Create the event admin user
+      const result = await apiRequest('POST', '/api/auth/register', {
+        username: data.username,
+        password: data.password,
+        email: data.email,
+        fullName: data.fullName,
+        role: 'event_admin',
+      });
+
+      // Assign the newly created admin to the selected event
+      if (result && result.user) {
+        await apiRequest('POST', `/api/events/${data.eventId}/admins`, {
+          adminId: result.user.id,
+        });
+      }
 
       toast({
         title: 'Event Admin created',
-        description: 'The event admin account has been created successfully',
+        description: 'The event admin account has been created and assigned to the event successfully',
       });
 
       setLocation('/admin/event-admins');
@@ -129,6 +151,37 @@ export default function EventAdminCreatePage() {
                       <FormControl>
                         <Input type="password" placeholder="Enter password" {...field} data-testid="input-password" />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="eventId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assign to Event</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-event">
+                            <SelectValue placeholder={eventsLoading ? "Loading events..." : "Select an event"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {events && events.length > 0 ? (
+                            events.map((event) => (
+                              <SelectItem key={event.id} value={event.id}>
+                                {event.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="" disabled>
+                              No events available
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
