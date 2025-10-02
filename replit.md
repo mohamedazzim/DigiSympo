@@ -8,6 +8,28 @@ The Symposium Management System is a React-based web application for managing sy
 - Real-time leaderboards and reporting
 
 ## Recent Changes
+**October 2, 2025** - Feature Enhancements: Validation, Round Rules & Bulk Upload
+- **NEW: Event Name Validation** ✅
+  - Prevents duplicate event names in the system
+  - Backend validation returns 409 Conflict for duplicates
+  - Frontend displays clear error messages to users
+- **NEW: Round-Specific Proctoring Rules** ✅
+  - Created `roundRules` table for per-round proctoring configuration
+  - Each round can have its own fullscreen, tab-switch, and violation rules
+  - UI page at `/event-admin/rounds/:roundId/rules` for configuration
+  - Test-taking now uses round-specific rules instead of event-level rules
+  - Lazy creation: Auto-generates default rules for legacy rounds
+  - Backfill endpoint for batch processing existing rounds
+- **NEW: Bulk MCQ Question Upload** ✅
+  - Upload multiple MCQ questions via CSV or JSON file
+  - CSV format: questionNumber,questionText,points,option1-4,correctAnswer
+  - JSON format: Array of question objects with options array
+  - Preview table before upload with validation
+  - Accessible at `/event-admin/rounds/:roundId/questions/bulk-upload`
+  - "Bulk Upload" button added to Questions page
+- **Total API Endpoints:** 35 (added 4: event name check, round rules CRUD, bulk upload, backfill)
+- **Database Tables:** 11 (added roundRules table)
+
 **October 2, 2025** - Core Functionality Completion & PRD Gap Resolution
 - **CRITICAL: All Missing PRD Features Implemented:**
   - ✅ Added comprehensive All Participants view at `/event-admin/participants` for event admins
