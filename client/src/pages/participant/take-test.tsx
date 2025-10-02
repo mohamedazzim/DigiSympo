@@ -29,13 +29,18 @@ export default function TakeTestPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [violations, setViolations] = useState({ tabSwitch: 0, refresh: 0 });
+  const [violations, setViolations] = useState({ tabSwitch: 0, fullscreenExit: 0, refresh: 0 });
   const [showViolationWarning, setShowViolationWarning] = useState(false);
+  const [violationMessage, setViolationMessage] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+  const [showTimeWarning, setShowTimeWarning] = useState(false);
+  const [timeWarningMessage, setTimeWarningMessage] = useState('');
   
   // Ref to track test status for event handlers
   const testStatusRef = useRef<string>('in_progress');
+  const hasShown5MinWarning = useRef(false);
+  const hasShown1MinWarning = useRef(false);
 
   const { data: attempt, isLoading } = useQuery<TestAttemptWithDetails>({
     queryKey: ['/api/attempts', attemptId],
@@ -99,13 +104,39 @@ export default function TakeTestPage() {
     }
   }, [attempt]);
 
-  // Timer countdown
+  // Timer countdown with warnings
   useEffect(() => {
     if (!attempt || !hasStarted) return;
 
     if (timeRemaining <= 0 && attempt.status === 'in_progress') {
       submitTestMutation.mutate();
       return;
+    }
+
+    // Show 5 minute warning
+    if (timeRemaining === 300 && !hasShown5MinWarning.current) {
+      hasShown5MinWarning.current = true;
+      setTimeWarningMessage('5 minutes remaining!');
+      setShowTimeWarning(true);
+      toast({
+        title: 'Time Warning',
+        description: '5 minutes remaining in your test',
+        variant: 'default',
+      });
+      setTimeout(() => setShowTimeWarning(false), 5000);
+    }
+
+    // Show 1 minute warning
+    if (timeRemaining === 60 && !hasShown1MinWarning.current) {
+      hasShown1MinWarning.current = true;
+      setTimeWarningMessage('1 minute remaining!');
+      setShowTimeWarning(true);
+      toast({
+        title: 'Time Warning',
+        description: '1 minute remaining in your test',
+        variant: 'destructive',
+      });
+      setTimeout(() => setShowTimeWarning(false), 5000);
     }
 
     const timer = setInterval(() => {
@@ -119,7 +150,7 @@ export default function TakeTestPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeRemaining, attempt, hasStarted, submitTestMutation]);
+  }, [timeRemaining, attempt, hasStarted, submitTestMutation, toast]);
 
   // Handle fullscreen start
   const handleBeginTest = async () => {
@@ -172,12 +203,30 @@ export default function TakeTestPage() {
           });
           setTimeout(() => submitTestMutation.mutate(), 2000);
         } else {
+          setViolationMessage(`Tab switching detected. ${(rules?.maxTabSwitchWarnings || 2) - newCount} warning(s) remaining.`);
           setShowViolationWarning(true);
           setTimeout(() => setShowViolationWarning(false), 3000);
         }
 
         return { ...prev, tabSwitch: newCount };
       });
+    } else if (type === 'fullscreen_exit') {
+      setViolations(prev => {
+        const newCount = prev.fullscreenExit + 1;
+        
+        if (rules?.autoSubmitOnViolation && newCount >= (rules.maxTabSwitchWarnings || 2)) {
+          toast({
+            title: 'Maximum violations exceeded',
+            description: 'Your test will be auto-submitted due to fullscreen violations',
+            variant: 'destructive',
+          });
+          setTimeout(() => submitTestMutation.mutate(), 2000);
+        }
+
+        return { ...prev, fullscreenExit: newCount };
+      });
+    } else if (type === 'refresh') {
+      setViolations(prev => ({ ...prev, refresh: prev.refresh + 1 }));
     }
   }, [attemptId, rules, submitTestMutation, toast]);
 
@@ -208,9 +257,34 @@ export default function TakeTestPage() {
     };
   }, []);
 
-  // Tab switch detection
+  // Back button prevention
   useEffect(() => {
-    if (!rules?.noTabSwitch) return;
+    if (!hasStarted) return;
+
+    // Push a state to history to prevent back navigation
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      window.history.pushState(null, '', window.location.href);
+      toast({
+        title: 'Navigation blocked',
+        description: 'You cannot use the back button during the test',
+        variant: 'destructive',
+      });
+      logViolation('back_button');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [hasStarted, toast, logViolation]);
+
+  // Tab switch detection with visibilitychange
+  useEffect(() => {
+    if (!rules?.noTabSwitch || !hasStarted) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden && attempt?.status === 'in_progress') {
@@ -220,30 +294,95 @@ export default function TakeTestPage() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [rules, attempt, logViolation]);
+  }, [rules?.noTabSwitch, attempt?.status, hasStarted, logViolation]);
 
-  // Disable shortcuts
+  // Backup tab switch detection with blur/focus
   useEffect(() => {
-    if (!rules?.disableShortcuts) return;
+    if (!rules?.noTabSwitch || !hasStarted) return;
+
+    const handleBlur = () => {
+      if (attempt?.status === 'in_progress') {
+        logViolation('tab_switch');
+      }
+    };
+
+    window.addEventListener('blur', handleBlur);
+    return () => window.removeEventListener('blur', handleBlur);
+  }, [rules?.noTabSwitch, attempt?.status, hasStarted, logViolation]);
+
+  // Enhanced keyboard shortcuts blocking
+  useEffect(() => {
+    if (!hasStarted) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInputField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
+      // Block refresh shortcuts (F5, Ctrl+R, Cmd+R)
       if (
-        e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'x' || e.key === 'p') ||
-        e.key === 'F12' ||
-        (e.ctrlKey && e.shiftKey && e.key === 'I')
+        e.key === 'F5' ||
+        (e.ctrlKey && e.key === 'r') ||
+        (e.metaKey && e.key === 'r')
       ) {
         e.preventDefault();
         toast({
           title: 'Action blocked',
-          description: 'This shortcut is disabled during the test',
+          description: 'Refresh is disabled during the test',
           variant: 'destructive',
         });
+        logViolation('refresh_attempt');
+        return;
+      }
+
+      // Block close window/tab shortcuts (Alt+F4, Cmd+Q, Ctrl+W, Cmd+W)
+      if (
+        (e.altKey && e.key === 'F4') ||
+        (e.metaKey && e.key === 'q') ||
+        (e.ctrlKey && e.key === 'w') ||
+        (e.metaKey && e.key === 'w')
+      ) {
+        e.preventDefault();
+        toast({
+          title: 'Action blocked',
+          description: 'You cannot close the window during the test',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Block backspace outside input fields (back navigation)
+      if (e.key === 'Backspace' && !isInputField) {
+        e.preventDefault();
+        toast({
+          title: 'Action blocked',
+          description: 'Backspace navigation is disabled during the test',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Block developer tools and other shortcuts if disableShortcuts is enabled
+      if (rules?.disableShortcuts) {
+        if (
+          e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'x' || e.key === 'p') ||
+          e.key === 'F12' ||
+          (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'J') ||
+          (e.ctrlKey && e.key === 'u')
+        ) {
+          e.preventDefault();
+          toast({
+            title: 'Action blocked',
+            description: 'This shortcut is disabled during the test',
+            variant: 'destructive',
+          });
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [rules]);
+  }, [hasStarted, rules?.disableShortcuts, toast, logViolation]);
 
   // Prevent refresh
   useEffect(() => {
@@ -434,7 +573,7 @@ export default function TakeTestPage() {
             {rules?.autoSubmitOnViolation && (
               <Badge variant="outline" className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                Violations: {violations.tabSwitch}/{rules.maxTabSwitchWarnings}
+                Violations: {violations.tabSwitch + violations.fullscreenExit}/{rules.maxTabSwitchWarnings}
               </Badge>
             )}
             <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
@@ -450,14 +589,22 @@ export default function TakeTestPage() {
           </div>
         </div>
 
+        {/* Time Warning */}
+        {showTimeWarning && (
+          <Alert className="mb-6 bg-orange-50 border-orange-200">
+            <Clock className="h-4 w-4 text-orange-600" />
+            <AlertDescription>
+              <strong>Time Alert:</strong> {timeWarningMessage}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Violation Warning */}
         {showViolationWarning && (
           <Alert className="mb-6 bg-yellow-50 border-yellow-200">
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
             <AlertDescription>
-              <strong>Warning:</strong> Tab switching detected. You have {
-                (rules?.maxTabSwitchWarnings || 2) - violations.tabSwitch
-              } warning(s) remaining before auto-submission.
+              <strong>Warning:</strong> {violationMessage || 'Violation detected.'}
             </AlertDescription>
           </Alert>
         )}
