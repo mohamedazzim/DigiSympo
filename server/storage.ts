@@ -88,6 +88,9 @@ export interface IStorage {
   createEventCredential(participantUserId: string, eventId: string, eventUsername: string, eventPassword: string): Promise<EventCredential>;
   getEventCredentialsByParticipant(participantUserId: string): Promise<EventCredential[]>;
   getEventCredentialsByEvent(eventId: string): Promise<Array<EventCredential & { participant: User, event: Event }>>;
+  getEventCredential(credentialId: string): Promise<EventCredential | undefined>;
+  updateEventCredentialTestStatus(credentialId: string, testEnabled: boolean, enabledBy: string): Promise<EventCredential>;
+  getEventCredentialsWithParticipants(eventId: string): Promise<Array<EventCredential & { participant: User }>>;
   isUserEventAdmin(userId: string, eventId: string): Promise<boolean>;
   getEventById(eventId: string): Promise<Event | undefined>;
 }
@@ -807,6 +810,9 @@ export class DatabaseStorage implements IStorage {
       eventId: eventCredentials.eventId,
       eventUsername: eventCredentials.eventUsername,
       eventPassword: eventCredentials.eventPassword,
+      testEnabled: eventCredentials.testEnabled,
+      enabledAt: eventCredentials.enabledAt,
+      enabledBy: eventCredentials.enabledBy,
       createdAt: eventCredentials.createdAt,
       participant: users,
       event: events,
@@ -815,6 +821,51 @@ export class DatabaseStorage implements IStorage {
     .innerJoin(users, eq(eventCredentials.participantUserId, users.id))
     .innerJoin(events, eq(eventCredentials.eventId, events.id))
     .where(eq(eventCredentials.eventId, eventId));
+    
+    return result as any;
+  }
+
+  async getEventCredential(credentialId: string): Promise<EventCredential | undefined> {
+    const [credential] = await db.select()
+      .from(eventCredentials)
+      .where(eq(eventCredentials.id, credentialId));
+    return credential;
+  }
+
+  async updateEventCredentialTestStatus(credentialId: string, testEnabled: boolean, enabledBy: string): Promise<EventCredential> {
+    const updateData: any = {
+      testEnabled,
+    };
+    
+    if (testEnabled) {
+      updateData.enabledAt = new Date();
+      updateData.enabledBy = enabledBy;
+    }
+    
+    const [credential] = await db.update(eventCredentials)
+      .set(updateData)
+      .where(eq(eventCredentials.id, credentialId))
+      .returning();
+    return credential;
+  }
+
+  async getEventCredentialsWithParticipants(eventId: string): Promise<Array<EventCredential & { participant: User }>> {
+    const result = await db.select({
+      id: eventCredentials.id,
+      participantUserId: eventCredentials.participantUserId,
+      eventId: eventCredentials.eventId,
+      eventUsername: eventCredentials.eventUsername,
+      eventPassword: eventCredentials.eventPassword,
+      testEnabled: eventCredentials.testEnabled,
+      enabledAt: eventCredentials.enabledAt,
+      enabledBy: eventCredentials.enabledBy,
+      createdAt: eventCredentials.createdAt,
+      participant: users,
+    })
+    .from(eventCredentials)
+    .innerJoin(users, eq(eventCredentials.participantUserId, users.id))
+    .where(eq(eventCredentials.eventId, eventId))
+    .orderBy(asc(users.fullName));
     
     return result as any;
   }

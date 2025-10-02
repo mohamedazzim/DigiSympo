@@ -1317,6 +1317,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/event-credentials/:credentialId/enable-test", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const { credentialId } = req.params;
+      
+      const credential = await storage.getEventCredential(credentialId);
+      if (!credential) {
+        return res.status(404).json({ message: 'Event credential not found' });
+      }
+      
+      if (user.role === 'event_admin') {
+        const isEventAdmin = await storage.isUserEventAdmin(user.id, credential.eventId);
+        if (!isEventAdmin) {
+          return res.status(403).json({ message: 'Not authorized for this event' });
+        }
+      } else if (user.role !== 'super_admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const updatedCredential = await storage.updateEventCredentialTestStatus(credentialId, true, user.id);
+      res.json(updatedCredential);
+    } catch (error) {
+      console.error("Enable test access error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/event-credentials/:credentialId/disable-test", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const { credentialId } = req.params;
+      
+      const credential = await storage.getEventCredential(credentialId);
+      if (!credential) {
+        return res.status(404).json({ message: 'Event credential not found' });
+      }
+      
+      if (user.role === 'event_admin') {
+        const isEventAdmin = await storage.isUserEventAdmin(user.id, credential.eventId);
+        if (!isEventAdmin) {
+          return res.status(403).json({ message: 'Not authorized for this event' });
+        }
+      } else if (user.role !== 'super_admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const updatedCredential = await storage.updateEventCredentialTestStatus(credentialId, false, user.id);
+      res.json(updatedCredential);
+    } catch (error) {
+      console.error("Disable test access error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:eventId/credentials-status", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const { eventId } = req.params;
+      
+      if (user.role === 'event_admin') {
+        const isEventAdmin = await storage.isUserEventAdmin(user.id, eventId);
+        if (!isEventAdmin) {
+          return res.status(403).json({ message: 'Not authorized for this event' });
+        }
+      } else if (user.role !== 'super_admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const credentialsWithParticipants = await storage.getEventCredentialsWithParticipants(eventId);
+      
+      const result = credentialsWithParticipants.map(cred => ({
+        id: cred.id,
+        participantUserId: cred.participantUserId,
+        eventUsername: cred.eventUsername,
+        testEnabled: cred.testEnabled,
+        enabledAt: cred.enabledAt,
+        enabledBy: cred.enabledBy,
+        participantFullName: cred.participant.fullName,
+        participantEmail: cred.participant.email,
+      }));
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Get credentials status error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
