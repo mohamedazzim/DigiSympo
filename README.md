@@ -240,6 +240,102 @@ The system uses 9 core tables:
 8. **test_attempts** - Test sessions with scoring
 9. **answers** - Participant responses
 
+## Data Integrity and Management
+
+### Cascade Delete Behavior
+
+The system implements strict cascade delete policies to maintain data integrity:
+
+**When an event is deleted, the following are automatically deleted:**
+- Event admin assignments (`eventAdmins` junction table)
+- Event-specific rules (`eventRules`)
+- All rounds within the event (`rounds`)
+  - Round-specific rules (`roundRules`)
+  - All questions in each round (`questions`)
+  - All test attempts for each round (`testAttempts`)
+    - All participant answers (`answers`)
+- Event participant registrations (`participants`)
+- Event-specific reports (`reports`)
+
+**Important Notes:**
+- **Admin user accounts persist** even after event deletion, allowing them to be reassigned to other events
+- **Creator information is preserved**: If a user who created events is deleted, the `createdBy` field is set to `null` rather than deleting the event (preserves event history)
+- **Report generator information is preserved**: If a user who generated reports is deleted, the `generatedBy` field is set to `null` (preserves report history)
+
+### Admin Credential Management
+
+Super Admins can update user credentials for any user account:
+
+**Update User Credentials (Super Admin only)**
+```
+PATCH /api/users/:id/credentials
+```
+
+**Request body (all fields optional):**
+```json
+{
+  "username": "new_username",
+  "email": "new_email@example.com",
+  "password": "new_password"
+}
+```
+
+**Features:**
+- Validates username and email uniqueness before updating
+- Automatically hashes passwords with bcrypt
+- Returns updated user without password field
+- Useful for resetting admin credentials or updating account information
+
+### Orphaned Admin Cleanup
+
+Orphaned event admins are users with the `event_admin` role who have no event assignments.
+
+**List Orphaned Event Admins (Super Admin only)**
+```
+GET /api/admin/orphaned-admins
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "admin-uuid",
+    "username": "admin1",
+    "email": "admin1@example.com",
+    "fullName": "Admin User",
+    "role": "event_admin",
+    "createdAt": "2025-10-02T..."
+  }
+]
+```
+
+**Cleanup Strategy:**
+1. Periodically check for orphaned admins using the endpoint above
+2. Review the list to identify admins who are no longer needed
+3. Either:
+   - Reassign them to new events using `POST /api/events/:eventId/admins`
+   - Delete their user accounts if they're truly no longer needed
+
+### Data Relationships Summary
+
+| Table | Foreign Key | On Delete Behavior | Purpose |
+|-------|-------------|-------------------|---------|
+| `events` | `createdBy` → `users` | SET NULL | Preserve event history |
+| `eventAdmins` | `eventId` → `events` | CASCADE | Clean up assignments |
+| `eventAdmins` | `adminId` → `users` | CASCADE | Remove invalid assignments |
+| `eventRules` | `eventId` → `events` | CASCADE | Remove orphaned rules |
+| `rounds` | `eventId` → `events` | CASCADE | Remove event content |
+| `roundRules` | `roundId` → `rounds` | CASCADE | Remove round-specific rules |
+| `questions` | `roundId` → `rounds` | CASCADE | Remove round questions |
+| `participants` | `eventId` → `events` | CASCADE | Remove registrations |
+| `participants` | `userId` → `users` | CASCADE | Remove user data |
+| `testAttempts` | `roundId` → `rounds` | CASCADE | Remove test data |
+| `testAttempts` | `userId` → `users` | CASCADE | Remove user attempts |
+| `answers` | `attemptId` → `testAttempts` | CASCADE | Remove attempt data |
+| `answers` | `questionId` → `questions` | CASCADE | Remove answer data |
+| `reports` | `eventId` → `events` | CASCADE | Remove event reports |
+| `reports` | `generatedBy` → `users` | SET NULL | Preserve report history |
+
 ## Development
 
 ### Running Tests

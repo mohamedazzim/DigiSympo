@@ -9,6 +9,8 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserCredentials(userId: string, updates: { username?: string; email?: string; password?: string }): Promise<User | undefined>;
+  getOrphanedEventAdmins(): Promise<User[]>;
   
   getEvents(): Promise<Event[]>;
   getEvent(id: string): Promise<Event | undefined>;
@@ -92,6 +94,46 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+
+  async updateUserCredentials(userId: string, updates: { username?: string; email?: string; password?: string }): Promise<User | undefined> {
+    if (updates.username) {
+      const existingUser = await this.getUserByUsername(updates.username);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('Username already exists');
+      }
+    }
+
+    if (updates.email) {
+      const existingUser = await this.getUserByEmail(updates.email);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('Email already exists');
+      }
+    }
+
+    const updateData: any = {};
+    if (updates.username !== undefined) updateData.username = updates.username;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.password !== undefined) updateData.password = updates.password;
+
+    const [user] = await db.update(users).set(updateData).where(eq(users.id, userId)).returning();
+    return user;
+  }
+
+  async getOrphanedEventAdmins(): Promise<User[]> {
+    const adminsWithAssignments = await db
+      .select({ adminId: eventAdmins.adminId })
+      .from(eventAdmins)
+      .groupBy(eventAdmins.adminId);
+    
+    const assignedAdminIds = new Set(adminsWithAssignments.map(a => a.adminId));
+    
+    const allEventAdmins = await db
+      .select()
+      .from(users)
+      .where(eq(users.role, 'event_admin'));
+    
+    return allEventAdmins.filter(admin => !assignedAdminIds.has(admin.id));
   }
 
   async getEvents(): Promise<Event[]> {

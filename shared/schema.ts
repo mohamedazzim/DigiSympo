@@ -15,6 +15,7 @@ export const users = pgTable("users", {
 });
 
 // Events table - created by super admin
+// Note: createdBy uses onDelete: 'set null' to preserve event history even if creator is deleted
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -23,7 +24,7 @@ export const events = pgTable("events", {
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   status: text("status").notNull().default('draft'), // draft, active, completed
-  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -144,12 +145,13 @@ export const answers = pgTable("answers", {
 });
 
 // Reports - event-wise and symposium-wide reports
+// Note: generatedBy uses onDelete: 'set null' to preserve report history even if generator is deleted
 export const reports = pgTable("reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }),
   reportType: text("report_type").notNull(), // event_wise, symposium_wide
   title: text("title").notNull(),
-  generatedBy: varchar("generated_by").references(() => users.id).notNull(),
+  generatedBy: varchar("generated_by").references(() => users.id, { onDelete: 'set null' }),
   reportData: jsonb("report_data").notNull(), // JSON data for the report
   fileUrl: text("file_url"), // URL to the generated PDF/Excel file
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -24,6 +24,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/users/:id/credentials", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { username, email, password } = req.body;
+      
+      if (!username && !email && !password) {
+        return res.status(400).json({ message: "At least one field (username, email, or password) must be provided" });
+      }
+
+      const updates: any = {};
+      if (username !== undefined) updates.username = username;
+      if (email !== undefined) updates.email = email;
+      if (password !== undefined) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        updates.password = hashedPassword;
+      }
+
+      const user = await storage.updateUserCredentials(req.params.id, updates);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({
+        message: "User credentials updated successfully",
+        user: userWithoutPassword
+      });
+    } catch (error: any) {
+      console.error("Update user credentials error:", error);
+      if (error.message === "Username already exists" || error.message === "Email already exists") {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/admin/orphaned-admins", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const orphanedAdmins = await storage.getOrphanedEventAdmins();
+      const adminsWithoutPasswords = orphanedAdmins.map(({ password, ...admin }) => admin);
+      res.json(adminsWithoutPasswords);
+    } catch (error) {
+      console.error("Get orphaned admins error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const { username, password, email, fullName, role } = req.body;
@@ -229,6 +275,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/events/:id", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
     try {
+      // CASCADE DELETE BEHAVIOR: Deleting an event automatically deletes eventAdmins (assignments),
+      // eventRules, rounds, roundRules, questions, testAttempts, answers, participants, and reports.
+      // Admin user accounts persist and can be reassigned to other events.
       await storage.deleteEvent(req.params.id);
       res.json({ message: "Event deleted successfully" });
     } catch (error) {
@@ -261,7 +310,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/events/:eventId/admins", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
     try {
       const admins = await storage.getEventAdminsByEvent(req.params.eventId);
-      res.json(admins);
+      const adminsWithoutPasswords = admins.map(({ password, ...admin }) => admin);
+      res.json(adminsWithoutPasswords);
     } catch (error) {
       console.error("Get event admins error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -545,7 +595,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/event-admin/participants", requireAuth, requireEventAdmin, async (req: AuthRequest, res: Response) => {
     try {
       const participants = await storage.getParticipantsByAdmin(req.user!.id);
-      res.json(participants);
+      const participantsWithoutPasswords = participants.map(p => ({
+        ...p,
+        user: p.user ? (({ password, ...user }) => user)(p.user) : p.user
+      }));
+      res.json(participantsWithoutPasswords);
     } catch (error) {
       console.error("Get admin participants error:", error);
       res.status(500).json({ message: "Internal server error" });
