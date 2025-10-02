@@ -21,6 +21,8 @@ export default function Login() {
         setLocation('/admin/dashboard');
       } else if (user.role === 'event_admin') {
         setLocation('/event-admin/dashboard');
+      } else if (user.role === 'registration_committee') {
+        setLocation('/registration-committee/dashboard');
       } else {
         setLocation('/participant/dashboard');
       }
