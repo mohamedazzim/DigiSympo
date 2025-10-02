@@ -232,7 +232,7 @@ export class DatabaseStorage implements IStorage {
     return attempt;
   }
 
-  async updateTestAttempt(id: string, updateData: Partial<InsertTestAttempt>): Promise<TestAttempt | undefined> {
+  async updateTestAttempt(id: string, updateData: Partial<TestAttempt>): Promise<TestAttempt | undefined> {
     const [attempt] = await db.update(testAttempts).set(updateData).where(eq(testAttempts.id, id)).returning();
     return attempt;
   }
@@ -246,7 +246,7 @@ export class DatabaseStorage implements IStorage {
     return answer;
   }
 
-  async updateAnswer(id: string, updateData: Partial<InsertAnswer>): Promise<Answer | undefined> {
+  async updateAnswer(id: string, updateData: Partial<Answer>): Promise<Answer | undefined> {
     const [answer] = await db.update(answers).set(updateData).where(eq(answers.id, id)).returning();
     return answer;
   }

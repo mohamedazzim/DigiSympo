@@ -42,7 +42,7 @@ export default function ParticipantDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/participant/tests')} data-testid="card-my-events">
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/participant/my-tests')} data-testid="card-my-events">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">My Events</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
