@@ -17,7 +17,6 @@ interface ParticipantLayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/participant/dashboard', icon: LayoutDashboard },
   { name: 'Events', href: '/participant/events', icon: Calendar },
-  { name: 'My Results', href: '/participant/results', icon: Trophy },
 ];
 
 export default function ParticipantLayout({ children }: ParticipantLayoutProps) {

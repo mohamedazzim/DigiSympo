@@ -17,9 +17,7 @@ export default function EventAdminEventsPage() {
     queryKey: ['/api/events'],
   });
 
-  const myEvents = events?.filter(event => {
-    return true;
-  }) || [];
+  const myEvents = events || [];
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
