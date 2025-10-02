@@ -190,6 +190,9 @@ export const eventCredentials = pgTable("event_credentials", {
   eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }).notNull(),
   eventUsername: varchar("event_username").unique().notNull(),
   eventPassword: varchar("event_password").notNull(),
+  testEnabled: boolean("test_enabled").notNull().default(false),
+  enabledAt: timestamp("enabled_at"),
+  enabledBy: varchar("enabled_by").references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
