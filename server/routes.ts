@@ -644,6 +644,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Leaderboard Routes
+  app.get("/api/rounds/:roundId/leaderboard", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const { roundId } = req.params;
+      const leaderboard = await storage.getRoundLeaderboard(roundId);
+      res.json(leaderboard);
+    } catch (error) {
+      console.error("Get round leaderboard error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:eventId/leaderboard", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const leaderboard = await storage.getEventLeaderboard(eventId);
+      res.json(leaderboard);
+    } catch (error) {
+      console.error("Get event leaderboard error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

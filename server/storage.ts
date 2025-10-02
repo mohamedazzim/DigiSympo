@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { db } from './db';
 import { users, events, eventAdmins, eventRules, rounds, questions, participants, testAttempts, answers, reports } from '@shared/schema';
 import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport } from '@shared/schema';
@@ -276,6 +276,61 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReport(id: string): Promise<void> {
     await db.delete(reports).where(eq(reports.id, id));
+  }
+
+  async getRoundLeaderboard(roundId: string) {
+    const attempts = await db
+      .select({
+        attemptId: testAttempts.id,
+        userId: testAttempts.userId,
+        userName: users.fullName,
+        totalScore: testAttempts.totalScore,
+        maxScore: testAttempts.maxScore,
+        submittedAt: testAttempts.submittedAt,
+        status: testAttempts.status
+      })
+      .from(testAttempts)
+      .innerJoin(users, eq(testAttempts.userId, users.id))
+      .where(and(
+        eq(testAttempts.roundId, roundId),
+        eq(testAttempts.status, 'completed')
+      ))
+      .orderBy(desc(testAttempts.totalScore), asc(testAttempts.submittedAt));
+
+    return attempts.map((attempt, index) => ({
+      ...attempt,
+      rank: index + 1
+    }));
+  }
+
+  async getEventLeaderboard(eventId: string) {
+    const roundsData = await db.select().from(rounds).where(eq(rounds.eventId, eventId));
+    const roundIds = roundsData.map(r => r.id);
+
+    if (roundIds.length === 0) {
+      return [];
+    }
+
+    const attempts = await db
+      .select({
+        userId: testAttempts.userId,
+        userName: users.fullName,
+        totalScore: sql<number>`SUM(${testAttempts.totalScore})`.as('total_score'),
+        submittedAt: sql<Date>`MAX(${testAttempts.submittedAt})`.as('last_submitted')
+      })
+      .from(testAttempts)
+      .innerJoin(users, eq(testAttempts.userId, users.id))
+      .where(and(
+        sql`${testAttempts.roundId} IN (${sql.join(roundIds.map(id => sql`${id}`), sql`, `)})`,
+        eq(testAttempts.status, 'completed')
+      ))
+      .groupBy(testAttempts.userId, users.fullName)
+      .orderBy(desc(sql`SUM(${testAttempts.totalScore})`), asc(sql`MAX(${testAttempts.submittedAt})`));
+
+    return attempts.map((attempt, index) => ({
+      ...attempt,
+      rank: index + 1
+    }));
   }
 }
 

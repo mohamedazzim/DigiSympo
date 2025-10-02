@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, AlertTriangle, Trophy } from 'lucide-react';
 import type { TestAttempt, Question, Answer, Round } from '@shared/schema';
 
 interface TestAttemptWithDetails extends TestAttempt {
@@ -281,10 +281,20 @@ export default function TestResultsPage() {
           </CardContent>
         </Card>
 
-        <div className="mt-6 flex justify-center">
+        <div className="mt-6 flex justify-center gap-4">
+          <Button
+            onClick={() => setLocation(`/participant/rounds/${attempt.roundId}/leaderboard`)}
+            size="lg"
+            variant="default"
+            data-testid="button-leaderboard"
+          >
+            <Trophy className="mr-2 h-5 w-5" />
+            See Leaderboard
+          </Button>
           <Button
             onClick={() => setLocation('/participant/dashboard')}
             size="lg"
+            variant="outline"
             data-testid="button-finish"
           >
             Back to Dashboard
