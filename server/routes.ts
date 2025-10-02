@@ -206,22 +206,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      // First, try event credential login (for participants)
       const eventCredential = await storage.getEventCredentialByUsername(username);
-      if (!eventCredential) {
-        return res.status(401).json({ message: "Invalid credentials" });
+      if (eventCredential) {
+        if (eventCredential.eventPassword !== password) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+        
+        const user = await storage.getUserById(eventCredential.participantUserId);
+        if (!user) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        const token = jwt.sign(
+          { id: user.id, username: user.username, role: user.role, eventId: eventCredential.eventId },
+          JWT_SECRET,
+          { expiresIn: "7d" }
+        );
+
+        return res.json({
+          message: "Login successful",
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            fullName: user.fullName,
+            role: user.role,
+            eventId: eventCredential.eventId
+          },
+          token
+        });
       }
 
-      if (eventCredential.eventPassword !== password) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      
-      const user = await storage.getUserById(eventCredential.participantUserId);
+      // If not event credential, try regular user login (for admins)
+      const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
       const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role, eventId: eventCredential.eventId },
+        { id: user.id, username: user.username, role: user.role },
         JWT_SECRET,
         { expiresIn: "7d" }
       );
@@ -233,8 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           username: user.username,
           email: user.email,
           fullName: user.fullName,
-          role: user.role,
-          eventId: eventCredential.eventId
+          role: user.role
         },
         token
       });
