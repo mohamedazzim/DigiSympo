@@ -256,45 +256,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'No event associated with this session' });
       }
 
-      const credential = await storage.getEventCredentialByUserAndEvent(user.id, user.eventId);
-      if (!credential) {
+      const data = await storage.getParticipantCredentialWithDetails(user.id, user.eventId);
+      
+      if (!data) {
         return res.status(404).json({ message: 'Event credential not found' });
       }
 
-      const event = await storage.getEvent(user.eventId);
-      if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
-      }
-
-      const rounds = await storage.getRoundsByEvent(user.eventId);
-      const eventRules = await storage.getEventRules(user.eventId);
-      
-      const roundsWithRules = await Promise.all(rounds.map(async (round) => {
-        const roundRules = await storage.getRoundRules(round.id);
-        return { ...round, rules: roundRules };
-      }));
+      const { credential, event, rounds, eventRules, activeRoundRules } = data;
 
       res.json({
-        credential: {
-          id: credential.id,
-          testEnabled: credential.testEnabled,
-          enabledAt: credential.enabledAt,
-        },
+        id: credential.id,
+        eventUsername: credential.eventUsername,
+        testEnabled: credential.testEnabled,
+        enabledAt: credential.enabledAt,
         event: {
           id: event.id,
           name: event.name,
           description: event.description,
           type: event.type,
-          category: event.category,
-          status: event.status,
+          category: event.category
         },
-        eventRules,
-        rounds: roundsWithRules,
-        participant: {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-        }
+        rounds: rounds.map((round: any) => ({
+          id: round.id,
+          name: round.name,
+          duration: round.duration,
+          startTime: round.startTime,
+          endTime: round.endTime,
+          status: round.status
+        })),
+        eventRules: {
+          noRefresh: eventRules?.noRefresh,
+          noTabSwitch: eventRules?.noTabSwitch,
+          forceFullscreen: eventRules?.forceFullscreen,
+          disableShortcuts: eventRules?.disableShortcuts,
+          autoSubmitOnViolation: eventRules?.autoSubmitOnViolation,
+          maxTabSwitchWarnings: eventRules?.maxTabSwitchWarnings,
+          additionalRules: eventRules?.additionalRules
+        },
+        roundRules: activeRoundRules ? {
+          noRefresh: activeRoundRules.noRefresh,
+          noTabSwitch: activeRoundRules.noTabSwitch,
+          forceFullscreen: activeRoundRules.forceFullscreen,
+          disableShortcuts: activeRoundRules.disableShortcuts,
+          autoSubmitOnViolation: activeRoundRules.autoSubmitOnViolation,
+          maxTabSwitchWarnings: activeRoundRules.maxTabSwitchWarnings,
+          additionalRules: activeRoundRules.additionalRules
+        } : null
       });
     } catch (error) {
       console.error("Get participant credential error:", error);

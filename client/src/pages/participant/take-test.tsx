@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ParticipantLayout from '@/components/layouts/ParticipantLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -17,7 +17,7 @@ import type { TestAttempt, Question, Answer, Round, RoundRules } from '@shared/s
 
 interface TestAttemptWithDetails extends TestAttempt {
   round: Round;
-  questions: Question[];
+  questions: (Question & { questionText: string })[];
   answers: Answer[];
 }
 
@@ -155,6 +155,32 @@ export default function TakeTestPage() {
     }
   };
 
+  const logViolation = useCallback((type: string) => {
+    if (!attemptId) return;
+
+    apiRequest('POST', `/api/attempts/${attemptId}/violations`, { type }).catch(console.error);
+
+    if (type === 'tab_switch') {
+      setViolations(prev => {
+        const newCount = prev.tabSwitch + 1;
+        
+        if (rules?.autoSubmitOnViolation && newCount >= (rules.maxTabSwitchWarnings || 2)) {
+          toast({
+            title: 'Maximum violations exceeded',
+            description: 'Your test will be auto-submitted',
+            variant: 'destructive',
+          });
+          setTimeout(() => submitTestMutation.mutate(), 2000);
+        } else {
+          setShowViolationWarning(true);
+          setTimeout(() => setShowViolationWarning(false), 3000);
+        }
+
+        return { ...prev, tabSwitch: newCount };
+      });
+    }
+  }, [attemptId, rules, submitTestMutation, toast]);
+
   // Fullscreen enforcement after test started
   useEffect(() => {
     if (!rules?.forceFullscreen || !hasStarted) return;
@@ -194,7 +220,7 @@ export default function TakeTestPage() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [rules, attempt]);
+  }, [rules, attempt, logViolation]);
 
   // Disable shortcuts
   useEffect(() => {
@@ -232,33 +258,7 @@ export default function TakeTestPage() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [rules]);
-
-  const logViolation = useCallback((type: string) => {
-    if (!attemptId) return;
-
-    apiRequest('POST', `/api/attempts/${attemptId}/violations`, { type }).catch(console.error);
-
-    if (type === 'tab_switch') {
-      setViolations(prev => {
-        const newCount = prev.tabSwitch + 1;
-        
-        if (rules?.autoSubmitOnViolation && newCount >= (rules.maxTabSwitchWarnings || 2)) {
-          toast({
-            title: 'Maximum violations exceeded',
-            description: 'Your test will be auto-submitted',
-            variant: 'destructive',
-          });
-          setTimeout(() => submitTestMutation.mutate(), 2000);
-        } else {
-          setShowViolationWarning(true);
-          setTimeout(() => setShowViolationWarning(false), 3000);
-        }
-
-        return { ...prev, tabSwitch: newCount };
-      });
-    }
-  }, [attemptId, rules, submitTestMutation, toast]);
+  }, [rules, logViolation]);
 
   const saveAnswerMutation = useMutation({
     mutationFn: async ({ questionId, answer }: { questionId: string; answer: string }) => {
@@ -318,8 +318,12 @@ export default function TakeTestPage() {
     );
   }
 
-  const currentQuestion = attempt.questions[currentQuestionIndex];
+  const currentQuestion: Question & { questionText: string } = attempt.questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / attempt.questions.length) * 100;
+  
+  const getQuestionText = (): string => {
+    return String(currentQuestion.questionText || '');
+  };
 
   // Show begin test screen
   if (!hasStarted) {
@@ -482,7 +486,7 @@ export default function TakeTestPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="text-lg" data-testid="text-question">
-              {currentQuestion.questionText}
+              {getQuestionText()}
             </div>
 
             {/* Multiple Choice */}
@@ -493,9 +497,9 @@ export default function TakeTestPage() {
               >
                 {(currentQuestion.options as string[]).map((option, index) => (
                   <div key={index} className="flex items-center space-x-2 p-3 rounded border hover:bg-gray-50">
-                    <RadioGroupItem value={option} id={`option-${index}`} data-testid={`radio-option-${index}`} />
+                    <RadioGroupItem value={option as string} id={`option-${index}`} data-testid={`radio-option-${index}`} />
                     <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
-                      {option}
+                      {option as string}
                     </Label>
                   </div>
                 ))}

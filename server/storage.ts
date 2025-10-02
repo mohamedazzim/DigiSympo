@@ -94,6 +94,7 @@ export interface IStorage {
   getEventCredentialsWithParticipants(eventId: string): Promise<Array<EventCredential & { participant: User }>>;
   isUserEventAdmin(userId: string, eventId: string): Promise<boolean>;
   getEventById(eventId: string): Promise<Event | undefined>;
+  getParticipantCredentialWithDetails(userId: string, eventId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -901,6 +902,35 @@ export class DatabaseStorage implements IStorage {
 
   async getEventById(eventId: string): Promise<Event | undefined> {
     return await this.getEvent(eventId);
+  }
+
+  async getParticipantCredentialWithDetails(userId: string, eventId: string): Promise<any> {
+    const credential = await this.getEventCredentialByUserAndEvent(userId, eventId);
+    if (!credential) {
+      return null;
+    }
+
+    const event = await this.getEvent(eventId);
+    if (!event) {
+      return null;
+    }
+
+    const rounds = await this.getRoundsByEvent(eventId);
+    const eventRules = await this.getEventRules(eventId);
+
+    const activeRound = rounds.find(r => r.status === 'active');
+    let activeRoundRules = null;
+    if (activeRound) {
+      activeRoundRules = await this.getRoundRules(activeRound.id);
+    }
+
+    return {
+      credential,
+      event,
+      rounds,
+      eventRules,
+      activeRoundRules
+    };
   }
 }
 
