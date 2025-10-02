@@ -19,9 +19,11 @@ import ReportGenerateEventPage from "@/pages/admin/report-generate-event";
 import ReportGenerateSymposiumPage from "@/pages/admin/report-generate-symposium";
 import EventAdminDashboard from "@/pages/event-admin/dashboard";
 import EventAdminEventsPage from "@/pages/event-admin/events";
+import EventAdminEventDetailsPage from "@/pages/event-admin/event-details";
 import EventRulesPage from "@/pages/event-admin/event-rules";
 import EventRoundsPage from "@/pages/event-admin/event-rounds";
 import RoundCreatePage from "@/pages/event-admin/round-create";
+import RoundEditPage from "@/pages/event-admin/round-edit";
 import RoundQuestionsPage from "@/pages/event-admin/round-questions";
 import RoundRulesPage from "@/pages/event-admin/round-rules";
 import QuestionCreatePage from "@/pages/event-admin/question-create";
@@ -168,6 +170,9 @@ function Router() {
       <Route path="/event-admin/events/:eventId/rounds/new">
         <ProtectedRoute component={RoundCreatePage} allowedRoles={['event_admin']} />
       </Route>
+      <Route path="/event-admin/events/:eventId/rounds/:roundId/edit">
+        <ProtectedRoute component={RoundEditPage} allowedRoles={['event_admin']} />
+      </Route>
       <Route path="/event-admin/events/:eventId/rounds">
         <ProtectedRoute component={EventRoundsPage} allowedRoles={['event_admin']} />
       </Route>
@@ -185,6 +190,9 @@ function Router() {
       </Route>
       <Route path="/event-admin/events/:eventId/participants">
         <ProtectedRoute component={EventParticipantsPage} allowedRoles={['event_admin']} />
+      </Route>
+      <Route path="/event-admin/events/:eventId">
+        <ProtectedRoute component={EventAdminEventDetailsPage} allowedRoles={['event_admin']} />
       </Route>
       <Route path="/event-admin/participants">
         <ProtectedRoute component={AllParticipantsPage} allowedRoles={['event_admin']} />

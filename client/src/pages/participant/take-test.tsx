@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Clock, AlertTriangle, Send, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { TestAttempt, Question, Answer, Round, RoundRules } from '@shared/schema';
+import type { TestAttempt, Question, Answer, Round, RoundRules, Participant } from '@shared/schema';
 
 interface TestAttemptWithDetails extends TestAttempt {
   round: Round;
@@ -59,7 +59,32 @@ export default function TakeTestPage() {
     enabled: !!attempt?.roundId,
   });
 
+  const { data: participant } = useQuery<Participant | null>({
+    queryKey: ['/api/participants/my-registrations', attempt?.userId, attempt?.round?.eventId],
+    queryFn: async () => {
+      if (!attempt?.userId || !attempt?.round?.eventId) return null;
+      const response = await fetch(`/api/participants/my-registrations`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const participants: Participant[] = await response.json();
+      return participants.find((p: Participant) => p.eventId === attempt.round.eventId && p.userId === attempt.userId) || null;
+    },
+    enabled: !!attempt?.userId && !!attempt?.round?.eventId,
+  });
+
   // Mutations defined early to avoid TDZ issues
+  const disqualifyMutation = useMutation({
+    mutationFn: async () => {
+      if (!participant?.id) throw new Error('Participant not found');
+      return apiRequest('PATCH', `/api/participants/${participant.id}/disqualify`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/participants'] });
+    },
+  });
+
   const submitTestMutation = useMutation({
     mutationFn: async () => {
       return apiRequest('POST', `/api/attempts/${attemptId}/submit`, {});
@@ -192,43 +217,31 @@ export default function TakeTestPage() {
     apiRequest('POST', `/api/attempts/${attemptId}/violations`, { type }).catch(console.error);
 
     if (type === 'tab_switch') {
-      setViolations(prev => {
-        const newCount = prev.tabSwitch + 1;
-        
-        if (rules?.autoSubmitOnViolation && newCount >= (rules.maxTabSwitchWarnings || 2)) {
-          toast({
-            title: 'Maximum violations exceeded',
-            description: 'Your test will be auto-submitted',
-            variant: 'destructive',
-          });
-          setTimeout(() => submitTestMutation.mutate(), 2000);
-        } else {
-          setViolationMessage(`Tab switching detected. ${(rules?.maxTabSwitchWarnings || 2) - newCount} warning(s) remaining.`);
-          setShowViolationWarning(true);
-          setTimeout(() => setShowViolationWarning(false), 3000);
-        }
-
-        return { ...prev, tabSwitch: newCount };
+      setViolations(prev => ({ ...prev, tabSwitch: prev.tabSwitch + 1 }));
+      
+      toast({
+        title: 'DISQUALIFIED',
+        description: 'You have been disqualified for tab switching',
+        variant: 'destructive',
       });
+      
+      disqualifyMutation.mutate();
+      setTimeout(() => submitTestMutation.mutate(), 1000);
     } else if (type === 'fullscreen_exit') {
-      setViolations(prev => {
-        const newCount = prev.fullscreenExit + 1;
-        
-        if (rules?.autoSubmitOnViolation && newCount >= (rules.maxTabSwitchWarnings || 2)) {
-          toast({
-            title: 'Maximum violations exceeded',
-            description: 'Your test will be auto-submitted due to fullscreen violations',
-            variant: 'destructive',
-          });
-          setTimeout(() => submitTestMutation.mutate(), 2000);
-        }
-
-        return { ...prev, fullscreenExit: newCount };
+      setViolations(prev => ({ ...prev, fullscreenExit: prev.fullscreenExit + 1 }));
+      
+      toast({
+        title: 'DISQUALIFIED',
+        description: 'You have been disqualified for exiting fullscreen',
+        variant: 'destructive',
       });
+      
+      disqualifyMutation.mutate();
+      setTimeout(() => submitTestMutation.mutate(), 1000);
     } else if (type === 'refresh') {
       setViolations(prev => ({ ...prev, refresh: prev.refresh + 1 }));
     }
-  }, [attemptId, rules, submitTestMutation, toast]);
+  }, [attemptId, disqualifyMutation, submitTestMutation, toast]);
 
   // Fullscreen enforcement after test started
   useEffect(() => {

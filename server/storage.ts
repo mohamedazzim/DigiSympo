@@ -50,6 +50,8 @@ export interface IStorage {
   getParticipantsByUser(userId: string): Promise<Participant[]>;
   getParticipantsByAdmin(adminId: string): Promise<any[]>;
   registerParticipant(participant: InsertParticipant): Promise<Participant>;
+  getParticipantByUserAndEvent(userId: string, eventId: string): Promise<Participant | undefined>;
+  updateParticipantStatus(participantId: string, status: 'registered' | 'completed' | 'disqualified'): Promise<Participant | undefined>;
   
   getTestAttempt(id: string): Promise<TestAttempt | undefined>;
   getTestAttemptByUserAndRound(userId: string, roundId: string): Promise<TestAttempt | undefined>;
@@ -310,6 +312,20 @@ export class DatabaseStorage implements IStorage {
 
   async registerParticipant(insertParticipant: InsertParticipant): Promise<Participant> {
     const [participant] = await db.insert(participants).values(insertParticipant).returning();
+    return participant;
+  }
+
+  async getParticipantByUserAndEvent(userId: string, eventId: string): Promise<Participant | undefined> {
+    const [participant] = await db.select().from(participants)
+      .where(and(eq(participants.userId, userId), eq(participants.eventId, eventId)));
+    return participant;
+  }
+
+  async updateParticipantStatus(participantId: string, status: 'registered' | 'completed' | 'disqualified'): Promise<Participant | undefined> {
+    const [participant] = await db.update(participants)
+      .set({ status })
+      .where(eq(participants.id, participantId))
+      .returning();
     return participant;
   }
 

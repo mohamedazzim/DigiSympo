@@ -345,6 +345,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/participants/:participantId/disqualify", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const { participantId } = req.params;
+      
+      const participant = await storage.updateParticipantStatus(participantId, 'disqualified');
+      
+      if (!participant) {
+        return res.status(404).json({ message: "Participant not found" });
+      }
+
+      res.json({
+        message: "Participant disqualified successfully",
+        participant
+      });
+    } catch (error) {
+      console.error("Disqualify participant error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/events", requireAuth, async (req: AuthRequest, res: Response) => {
     try {
       if (req.user!.role === "super_admin" || req.user!.role === "registration_committee") {
@@ -625,6 +645,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(round);
     } catch (error) {
       console.error("Create round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/rounds/:roundId", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const { name, description, roundNumber, duration, startTime, endTime, status } = req.body;
+      
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (description !== undefined) updateData.description = description;
+      if (roundNumber !== undefined) updateData.roundNumber = roundNumber;
+      if (duration !== undefined) updateData.duration = duration;
+      if (startTime !== undefined) updateData.startTime = new Date(startTime);
+      if (endTime !== undefined) updateData.endTime = new Date(endTime);
+      if (status !== undefined) updateData.status = status;
+
+      const round = await storage.updateRound(req.params.roundId, updateData);
+      if (!round) {
+        return res.status(404).json({ message: "Round not found" });
+      }
+
+      res.json(round);
+    } catch (error) {
+      console.error("Update round error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

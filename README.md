@@ -48,26 +48,32 @@ A comprehensive React-based web application for managing symposium events with p
 - **Participant Management**: Monitor test enablement status from credentials dashboard
 - **Flexible Administration**: Control test timing independently for each participant
 
-### Strict Proctored Online Testing
+### Strict Proctored Online Testing (Zero-Tolerance Policy)
 - **Fullscreen Enforcement**: Mandatory fullscreen mode with user gesture activation, strictly enforced throughout test
+- **Immediate Disqualification on Tab Switch**: ❌ **FIRST tab switch = instant disqualification** - No warnings, no second chances
+- **Immediate Disqualification on Fullscreen Exit**: ❌ **Exiting fullscreen = instant disqualification** - Zero tolerance policy
 - **Back Button Blocking**: Prevents browser back navigation during active tests
 - **Refresh Prevention**: Blocks page refresh (F5, Ctrl+R, Cmd+R) and all refresh shortcuts
-- **Tab Switch Detection**: Automatic tracking and violation warnings for tab switching attempts
 - **Window/Tab Close Protection**: Blocks Ctrl+W, Cmd+W, and other closing shortcuts
-- **Keyboard Shortcut Blocking**: Disables all potentially disruptive keyboard shortcuts during test
+- **Keyboard Shortcut Blocking**: Disables ALL keyboard shortcuts during test (copy, paste, print, developer tools)
 - **Violation Tracking**: Real-time logging of all proctoring violations with timestamps
-- **Auto-Submit on Violations**: Automatic test submission when max violations reached
-- **Timer Auto-Submit**: Automatic submission when time expires
+- **Auto-Submit on Disqualification**: Test automatically submitted when participant is disqualified
+- **Timer Auto-Submit**: Automatic submission when time expires with countdown warnings (5 min, 1 min)
 - **Round-Specific Rules**: Configure proctoring rules per round (overrides event-level rules)
+- **Participant Status Updates**: Disqualified participants permanently marked in system
 
-### Event Rules & Regulations
-- ⚠️ **Do not switch tabs** during the event — doing so will lead to disqualification
-- 🔒 **Do not exit fullscreen mode** at any point
-- 🚫 **Do not use any keyboard shortcuts** — they are strictly prohibited
-- ✅ **Each correct answer earns +1 mark**
-- ℹ️ **No negative marks** for incorrect answers
-- 📊 **Results will be displayed after the event concludes** — wait for the event to end to view your final score and correct answers
-- 🎯 **All the best!**
+### Event Rules & Regulations ⚠️
+- ❌ **ZERO TOLERANCE: Tab switching = INSTANT DISQUALIFICATION** - No warnings, first violation eliminates you
+- ❌ **ZERO TOLERANCE: Exiting fullscreen = INSTANT DISQUALIFICATION** - Must stay in fullscreen throughout
+- 🚫 **All keyboard shortcuts are BLOCKED and PROHIBITED** - No copy, paste, print, or developer tools
+- ⏱️ **Timer runs continuously** - Test auto-submits when time expires (warnings at 5 min and 1 min)
+- ✅ **Each correct answer earns +1 mark** - Points based on question difficulty
+- ℹ️ **No negative marks** for incorrect answers - Only correct answers earn points
+- 📊 **Results displayed after event concludes** - View your score, correct answers, and leaderboard position
+- 🏆 **Leaderboard rankings** - Ranked by score (primary) and submission time (secondary - earlier is better)
+- 🎯 **Test access controlled by Event Admin** - "Begin Test" button enabled only when admin permits
+- 📝 **All violations are permanently logged** - Tab switches, fullscreen exits, and other infractions recorded
+- ⚡ **All the best!**
 
 ### Event Management
 - **Create and manage symposium events with categories**
