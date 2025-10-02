@@ -623,7 +623,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedAttempt = await storage.updateTestAttempt(attemptId, {
         status: 'completed',
         submittedAt: new Date(),
-        completedAt: new Date(),
         totalScore
       });
 
