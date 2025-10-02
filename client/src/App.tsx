@@ -13,6 +13,7 @@ import EventEditPage from "@/pages/admin/event-edit";
 import EventDetailsPage from "@/pages/admin/event-details";
 import EventAdminsPage from "@/pages/admin/event-admins";
 import EventAdminCreatePage from "@/pages/admin/event-admin-create";
+import EventAdminEditPage from "@/pages/admin/event-admin-edit";
 import ReportsPage from "@/pages/admin/reports";
 import ReportGenerateEventPage from "@/pages/admin/report-generate-event";
 import ReportGenerateSymposiumPage from "@/pages/admin/report-generate-symposium";
@@ -108,6 +109,9 @@ function Router() {
       </Route>
       <Route path="/admin/event-admins/create">
         <ProtectedRoute component={EventAdminCreatePage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/event-admins/:id/edit">
+        <ProtectedRoute component={EventAdminEditPage} allowedRoles={['super_admin']} />
       </Route>
       <Route path="/admin/reports">
         <ProtectedRoute component={ReportsPage} allowedRoles={['super_admin']} />

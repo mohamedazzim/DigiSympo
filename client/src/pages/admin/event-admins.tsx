@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Pencil } from 'lucide-react';
 import type { User } from '@shared/schema';
 
 export default function EventAdminsPage() {
@@ -70,6 +70,7 @@ export default function EventAdminsPage() {
                     <TableHead>Username</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Created At</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -81,6 +82,16 @@ export default function EventAdminsPage() {
                       <TableCell>{admin.username}</TableCell>
                       <TableCell>{admin.email}</TableCell>
                       <TableCell>{new Date(admin.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setLocation(`/admin/event-admins/${admin.id}/edit`)}
+                          data-testid={`button-edit-${admin.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

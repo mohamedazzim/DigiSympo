@@ -164,24 +164,24 @@ export default function EventAdminCreatePage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Assign to Event</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!events || events.length === 0}>
                         <FormControl>
                           <SelectTrigger data-testid="select-event">
-                            <SelectValue placeholder={eventsLoading ? "Loading events..." : "Select an event"} />
+                            <SelectValue placeholder={
+                              eventsLoading 
+                                ? "Loading events..." 
+                                : (!events || events.length === 0) 
+                                  ? "No events available - create an event first"
+                                  : "Select an event"
+                            } />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {events && events.length > 0 ? (
-                            events.map((event) => (
-                              <SelectItem key={event.id} value={event.id}>
-                                {event.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="" disabled>
-                              No events available
+                          {events?.map((event) => (
+                            <SelectItem key={event.id} value={event.id}>
+                              {event.name}
                             </SelectItem>
-                          )}
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
