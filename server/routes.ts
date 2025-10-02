@@ -252,11 +252,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user!;
       
-      if (!user.eventId) {
-        return res.status(400).json({ message: 'No event associated with this session' });
+      let data;
+      
+      if (user.eventId) {
+        data = await storage.getParticipantCredentialWithDetails(user.id, user.eventId);
+      } else {
+        const credentials = await storage.getEventCredentialsByParticipant(user.id);
+        if (credentials.length === 0) {
+          return res.status(400).json({ message: 'No event associated with this user' });
+        }
+        const firstCredential = credentials[0];
+        data = await storage.getParticipantCredentialWithDetails(user.id, firstCredential.eventId);
       }
-
-      const data = await storage.getParticipantCredentialWithDetails(user.id, user.eventId);
       
       if (!data) {
         return res.status(404).json({ message: 'Event credential not found' });
