@@ -214,16 +214,16 @@ function Router() {
         <ProtectedRoute component={TakeTestPage} allowedRoles={['participant']} />
       </Route>
       <Route path="/participant/results/:attemptId">
-        <Redirect to="/participant/dashboard" />
+        <ProtectedRoute component={TestResultsPage} allowedRoles={['participant']} />
       </Route>
       <Route path="/participant/my-tests">
         <ProtectedRoute component={MyTestsPage} allowedRoles={['participant']} />
       </Route>
       <Route path="/participant/rounds/:roundId/leaderboard">
-        <Redirect to="/participant/dashboard" />
+        <ProtectedRoute component={LeaderboardPage} allowedRoles={['participant']} />
       </Route>
       <Route path="/participant/events/:eventId/leaderboard">
-        <Redirect to="/participant/dashboard" />
+        <ProtectedRoute component={LeaderboardPage} allowedRoles={['participant']} />
       </Route>
 
       <Route component={NotFound} />
