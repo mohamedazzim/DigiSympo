@@ -85,6 +85,17 @@ npm run dev
 
 The application will be available at `http://localhost:5000`
 
+## Test Credentials
+
+A Super Admin account has been created for testing:
+
+**Super Admin**
+- **Username:** `superadmin`
+- **Email:** `superadmin@test.com`
+- **Password:** `Admin123!`
+
+Use these credentials to log in and access all administrative features including event management, user management, and system-wide reports.
+
 ## Project Structure
 
 ```
