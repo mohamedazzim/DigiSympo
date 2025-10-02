@@ -233,13 +233,10 @@ export default function EventDetailsPage() {
           <TabsContent value="admins">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Assigned Event Admins</CardTitle>
-                  <Button size="sm" onClick={() => setLocation(`/admin/events/${eventId}/assign-admin`)} data-testid="button-assign-admin">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Assign Admin
-                  </Button>
-                </div>
+                <CardTitle>Assigned Event Admins</CardTitle>
+                <CardDescription className="mt-2">
+                  Event admins are assigned when creating a new admin account. To add more admins to this event, create a new event admin and select this event.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {!eventAdmins || eventAdmins.length === 0 ? (

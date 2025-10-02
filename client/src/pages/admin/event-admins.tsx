@@ -70,7 +70,6 @@ export default function EventAdminsPage() {
                     <TableHead>Username</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Created At</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -82,16 +81,6 @@ export default function EventAdminsPage() {
                       <TableCell>{admin.username}</TableCell>
                       <TableCell>{admin.email}</TableCell>
                       <TableCell>{new Date(admin.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setLocation(`/admin/event-admins/${admin.id}/assign`)}
-                          data-testid={`button-assign-${admin.id}`}
-                        >
-                          Assign Events
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
