@@ -1,119 +1,185 @@
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import EventAdminLayout from '@/components/layouts/EventAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Users, Mail } from 'lucide-react';
-import type { Participant, Event, User } from '@shared/schema';
+import { Download, Printer, ArrowLeft } from 'lucide-react';
+import EventAdminLayout from '@/components/layouts/EventAdminLayout';
+import type { Event } from '@shared/schema';
 
-interface ParticipantWithUser extends Participant {
-  user?: User;
+interface EventCredentialWithDetails {
+  id: string;
+  participantUserId: string;
+  eventId: string;
+  eventUsername: string;
+  eventPassword: string;
+  createdAt: Date;
+  participant: {
+    id: string;
+    username: string;
+    email: string;
+    fullName: string;
+  };
+  event: Event;
 }
 
 export default function EventParticipantsPage() {
   const { eventId } = useParams();
   const [, setLocation] = useLocation();
-
-  const { data: event, isLoading: eventLoading } = useQuery<Event>({
+  
+  const { data: event } = useQuery<Event>({
     queryKey: ['/api/events', eventId],
     enabled: !!eventId,
   });
-
-  const { data: participants, isLoading: participantsLoading } = useQuery<ParticipantWithUser[]>({
-    queryKey: ['/api/events', eventId, 'participants'],
+  
+  const { data: credentials = [], isLoading } = useQuery<EventCredentialWithDetails[]>({
+    queryKey: [`/api/events/${eventId}/event-credentials`],
     enabled: !!eventId,
   });
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
-      registered: 'secondary',
-      participated: 'default',
-      disqualified: 'destructive',
-    };
-
-    return (
-      <Badge variant={variants[status] || 'default'}>
-        {status}
-      </Badge>
-    );
+  
+  const handleExport = () => {
+    const headers = ['Participant Name', 'Event Name', 'Event Username', 'Event Password', 'Signature'];
+    const rows = credentials.map(c => [
+      c.participant.fullName,
+      c.event.name,
+      c.eventUsername,
+      c.eventPassword,
+      '________________',
+    ]);
+    
+    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${event?.name || 'event'}-participants.csv`;
+    a.click();
   };
-
-  if (eventLoading || participantsLoading) {
-    return (
-      <EventAdminLayout>
-        <div className="p-8">
-          <div className="text-center py-12" data-testid="loading-participants">Loading participants...</div>
-        </div>
-      </EventAdminLayout>
-    );
-  }
-
+  
+  const handlePrint = () => {
+    const printContent = `
+      <html>
+        <head>
+          <title>Participant List - ${event?.name || 'Event'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            h1 { color: #333; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body>
+          <h1>${event?.name || 'Event'} - Participant List</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Participant Name</th>
+                <th>Event Username</th>
+                <th>Event Password</th>
+                <th>Signature</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${credentials.map(c => `
+                <tr>
+                  <td>${c.participant.fullName}</td>
+                  <td>${c.eventUsername}</td>
+                  <td>${c.eventPassword}</td>
+                  <td>________________</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+  
   return (
     <EventAdminLayout>
       <div className="p-8">
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => setLocation('/event-admin/events')}
-            className="mb-4"
-            data-testid="button-back"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to My Events
-          </Button>
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900" data-testid="heading-participants">Event Participants</h1>
-              <p className="text-gray-600 mt-1">{event?.name}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-indigo-600" data-testid="text-total-count">
-                {participants?.length || 0}
-              </div>
-              <div className="text-sm text-gray-600">Total Participants</div>
-            </div>
+        <Button
+          variant="ghost"
+          onClick={() => setLocation('/event-admin/events')}
+          className="mb-4"
+          data-testid="button-back"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to My Events
+        </Button>
+
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold" data-testid="heading-participants">Event Participants</h1>
+            <p className="text-muted-foreground mt-2">{event?.name}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleExport} 
+              variant="outline" 
+              data-testid="button-export"
+              disabled={credentials.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button 
+              onClick={handlePrint} 
+              variant="outline" 
+              data-testid="button-print"
+              disabled={credentials.length === 0}
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </Button>
           </div>
         </div>
-
+        
         <Card>
           <CardHeader>
-            <CardTitle>Registered Participants</CardTitle>
+            <CardTitle>Participants ({credentials.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {!participants || participants.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-lg font-medium text-gray-600" data-testid="no-participants">
-                  No participants registered yet
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Participants will appear here once they register for the event
-                </p>
+            {isLoading ? (
+              <div className="text-center py-8" data-testid="loading-credentials">
+                Loading credentials...
+              </div>
+            ) : credentials.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground" data-testid="text-no-credentials">
+                No participants registered for this event yet
               </div>
             ) : (
-              <Table>
+              <Table data-testid="table-credentials">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Participant ID</TableHead>
-                    <TableHead>User ID</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Participant Name</TableHead>
+                    <TableHead>Event Username</TableHead>
+                    <TableHead>Event Password</TableHead>
                     <TableHead>Registration Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {participants.map((participant) => (
-                    <TableRow key={participant.id} data-testid={`row-participant-${participant.id}`}>
-                      <TableCell className="font-medium" data-testid={`text-participant-id-${participant.id}`}>
-                        {participant.id.substring(0, 8)}...
+                  {credentials.map((cred) => (
+                    <TableRow key={cred.id} data-testid={`row-credential-${cred.id}`}>
+                      <TableCell data-testid={`text-name-${cred.id}`}>
+                        {cred.participant.fullName}
                       </TableCell>
-                      <TableCell>
-                        {participant.userId.substring(0, 8)}...
+                      <TableCell className="font-mono" data-testid={`text-username-${cred.id}`}>
+                        {cred.eventUsername}
                       </TableCell>
-                      <TableCell>{getStatusBadge(participant.status)}</TableCell>
-                      <TableCell>
-                        {participant.registeredAt ? new Date(participant.registeredAt).toLocaleDateString() : '-'}
+                      <TableCell className="font-mono" data-testid={`text-password-${cred.id}`}>
+                        {cred.eventPassword}
+                      </TableCell>
+                      <TableCell data-testid={`text-date-${cred.id}`}>
+                        {new Date(cred.createdAt).toLocaleDateString()}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -122,36 +188,6 @@ export default function EventParticipantsPage() {
             )}
           </CardContent>
         </Card>
-
-        {participants && participants.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Statistics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {participants.filter(p => p.status === 'registered').length}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">Registered</div>
-                </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">
-                    {participants.filter(p => p.status === 'participated').length}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">Participated</div>
-                </div>
-                <div className="text-center p-4 bg-red-50 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">
-                    {participants.filter(p => p.status === 'disqualified').length}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">Disqualified</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </EventAdminLayout>
   );

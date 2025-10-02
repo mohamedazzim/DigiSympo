@@ -183,6 +183,16 @@ export const registrations = pgTable("registrations", {
   processedBy: varchar("processed_by").references(() => users.id, { onDelete: 'set null' }),
 });
 
+// Event Credentials - event-specific credentials for participants
+export const eventCredentials = pgTable("event_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  participantUserId: varchar("participant_user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  eventUsername: varchar("event_username").unique().notNull(),
+  eventPassword: varchar("event_password").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -251,6 +261,11 @@ export const insertRegistrationSchema = createInsertSchema(registrations).omit({
   processedAt: true,
 });
 
+export const insertEventCredentialSchema = createInsertSchema(eventCredentials).omit({
+  id: true,
+  createdAt: true,
+});
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -289,3 +304,6 @@ export type InsertRegistrationForm = z.infer<typeof insertRegistrationFormSchema
 
 export type Registration = typeof registrations.$inferSelect;
 export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;
+
+export type EventCredential = typeof eventCredentials.$inferSelect;
+export type InsertEventCredential = z.infer<typeof insertEventCredentialSchema>;

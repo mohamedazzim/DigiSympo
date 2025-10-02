@@ -14,7 +14,10 @@ import type { Registration, Event } from "@shared/schema";
 export default function RegistrationCommitteeRegistrationsPage() {
   const { toast } = useToast();
   const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
-  const [credentials, setCredentials] = useState<{ username: string; password: string; email: string } | null>(null);
+  const [credentials, setCredentials] = useState<{
+    main: { username: string; password: string; email: string };
+    events: Array<{ eventId: string; eventName: string; eventUsername: string; eventPassword: string }>;
+  } | null>(null);
   const [showCredentials, setShowCredentials] = useState(false);
 
   const { data: registrations, isLoading } = useQuery<Registration[]>({
@@ -32,7 +35,10 @@ export default function RegistrationCommitteeRegistrationsPage() {
       return result;
     },
     onSuccess: (data) => {
-      setCredentials(data.credentials);
+      setCredentials({
+        main: data.mainCredentials,
+        events: data.eventCredentials || [],
+      });
       setShowCredentials(true);
       setSelectedRegistration(null);
       queryClient.invalidateQueries({ queryKey: ['/api/registrations'] });
@@ -68,13 +74,21 @@ export default function RegistrationCommitteeRegistrationsPage() {
     }
   };
 
-  const copyCredentials = () => {
+  const copyAllCredentials = () => {
     if (credentials) {
-      const text = `Username: ${credentials.username}\nPassword: ${credentials.password}\nEmail: ${credentials.email}`;
+      let text = `Main Account Credentials:\nUsername: ${credentials.main.username}\nPassword: ${credentials.main.password}\nEmail: ${credentials.main.email}\n\n`;
+      
+      if (credentials.events && credentials.events.length > 0) {
+        text += `Event-Specific Credentials:\n`;
+        credentials.events.forEach((event) => {
+          text += `\n${event.eventName}:\nEvent Username: ${event.eventUsername}\nEvent Password: ${event.eventPassword}\n`;
+        });
+      }
+      
       navigator.clipboard.writeText(text);
       toast({
         title: "Copied",
-        description: "Credentials copied to clipboard",
+        description: "All credentials copied to clipboard",
       });
     }
   };
@@ -218,7 +232,7 @@ export default function RegistrationCommitteeRegistrationsPage() {
         </Dialog>
 
         <Dialog open={showCredentials} onOpenChange={setShowCredentials}>
-          <DialogContent data-testid="dialog-credentials">
+          <DialogContent className="max-w-3xl" data-testid="dialog-credentials">
             <DialogHeader>
               <DialogTitle data-testid="credentials-title">
                 <CheckCircle className="h-6 w-6 text-green-600 inline mr-2" />
@@ -229,28 +243,62 @@ export default function RegistrationCommitteeRegistrationsPage() {
               </DialogDescription>
             </DialogHeader>
             {credentials && (
-              <div className="space-y-3 p-4 bg-muted rounded-md" data-testid="credentials-info">
-                <div>
-                  <span className="font-medium">Username: </span>
-                  <code className="text-sm" data-testid="text-username">{credentials.username}</code>
+              <div className="space-y-4" data-testid="credentials-info">
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <h3 className="font-semibold mb-2">Main Account Credentials</h3>
+                  <div className="space-y-1 text-sm">
+                    <div>
+                      <span className="font-medium">Username: </span>
+                      <code data-testid="text-main-username">{credentials.main.username}</code>
+                    </div>
+                    <div>
+                      <span className="font-medium">Password: </span>
+                      <code data-testid="text-main-password">{credentials.main.password}</code>
+                    </div>
+                    <div>
+                      <span className="font-medium">Email: </span>
+                      <code data-testid="text-main-email">{credentials.main.email}</code>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-medium">Password: </span>
-                  <code className="text-sm" data-testid="text-password">{credentials.password}</code>
+
+                {credentials.events && credentials.events.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Event-Specific Credentials</h3>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      These credentials will be visible to event admins for their respective events.
+                    </p>
+                    <div className="space-y-2">
+                      {credentials.events.map((event) => (
+                        <div key={event.eventId} className="p-3 bg-blue-50 rounded-md" data-testid={`event-cred-${event.eventId}`}>
+                          <p className="font-semibold text-blue-900 mb-1">{event.eventName}</p>
+                          <div className="text-sm space-y-0.5">
+                            <div>
+                              <span className="font-medium">Event Username: </span>
+                              <code className="text-xs">{event.eventUsername}</code>
+                            </div>
+                            <div>
+                              <span className="font-medium">Event Password: </span>
+                              <code className="text-xs">{event.eventPassword}</code>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ Important: These credentials will only be shown once. Make sure to save and share them with the participant.
+                  </p>
                 </div>
-                <div>
-                  <span className="font-medium">Email: </span>
-                  <code className="text-sm" data-testid="text-email">{credentials.email}</code>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  ⚠️ Note: This password will only be shown once. Make sure to save it.
-                </p>
               </div>
             )}
             <DialogFooter>
-              <Button onClick={copyCredentials} variant="outline" data-testid="button-copy-credentials">
+              <Button onClick={copyAllCredentials} variant="outline" data-testid="button-copy-credentials">
                 <Copy className="h-4 w-4 mr-2" />
-                Copy Credentials
+                Copy All Credentials
               </Button>
               <Button onClick={() => {
                 setShowCredentials(false);

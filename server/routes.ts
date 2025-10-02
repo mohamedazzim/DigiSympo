@@ -1213,8 +1213,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: 'participant',
       });
       
+      const eventCredentialsList = [];
+      
       for (const eventId of registration.selectedEvents) {
         await storage.createParticipant(newUser.id, eventId);
+        
+        const event = await storage.getEventById(eventId);
+        if (!event) continue;
+        
+        const eventUsername = `${event.name.toLowerCase().replace(/\s+/g, '-').substring(0, 10)}-${userData.fullName.split(' ')[0].toLowerCase()}-${nanoid(4)}`;
+        const eventPassword = generateSecurePassword();
+        
+        await storage.createEventCredential(
+          newUser.id,
+          eventId,
+          eventUsername,
+          eventPassword
+        );
+        
+        eventCredentialsList.push({
+          eventId,
+          eventName: event.name,
+          eventUsername,
+          eventPassword,
+        });
       }
       
       const updated = await storage.updateRegistrationStatus(
@@ -1226,14 +1248,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         registration: updated,
-        credentials: {
+        mainCredentials: {
           username: newUser.username,
           password: password,
           email: newUser.email,
-        }
+        },
+        eventCredentials: eventCredentialsList,
       });
     } catch (error) {
       console.error("Approve registration error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:eventId/event-credentials", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const { eventId } = req.params;
+      
+      if (user.role === 'event_admin') {
+        const isEventAdmin = await storage.isUserEventAdmin(user.id, eventId);
+        if (!isEventAdmin) {
+          return res.status(403).json({ message: 'Not authorized for this event' });
+        }
+      } else if (user.role !== 'super_admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const credentials = await storage.getEventCredentialsByEvent(eventId);
+      res.json(credentials);
+    } catch (error) {
+      console.error("Get event credentials error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

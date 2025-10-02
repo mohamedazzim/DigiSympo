@@ -1,7 +1,7 @@
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { db } from './db';
-import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports, registrationForms, registrations } from '@shared/schema';
-import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport, RegistrationForm, InsertRegistrationForm, Registration, InsertRegistration } from '@shared/schema';
+import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports, registrationForms, registrations, eventCredentials } from '@shared/schema';
+import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport, RegistrationForm, InsertRegistrationForm, Registration, InsertRegistration, EventCredential, InsertEventCredential } from '@shared/schema';
 
 export interface IStorage {
   getUsers(): Promise<User[]>;
@@ -84,6 +84,12 @@ export interface IStorage {
   
   getEventsByIds(eventIds: string[]): Promise<Event[]>;
   createParticipant(userId: string, eventId: string): Promise<Participant>;
+  
+  createEventCredential(participantUserId: string, eventId: string, eventUsername: string, eventPassword: string): Promise<EventCredential>;
+  getEventCredentialsByParticipant(participantUserId: string): Promise<EventCredential[]>;
+  getEventCredentialsByEvent(eventId: string): Promise<Array<EventCredential & { participant: User, event: Event }>>;
+  isUserEventAdmin(userId: string, eventId: string): Promise<boolean>;
+  getEventById(eventId: string): Promise<Event | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -776,6 +782,52 @@ export class DatabaseStorage implements IStorage {
       status: 'registered'
     }).returning();
     return participant;
+  }
+
+  async createEventCredential(participantUserId: string, eventId: string, eventUsername: string, eventPassword: string): Promise<EventCredential> {
+    const [credential] = await db.insert(eventCredentials).values({
+      participantUserId,
+      eventId,
+      eventUsername,
+      eventPassword,
+    }).returning();
+    return credential;
+  }
+
+  async getEventCredentialsByParticipant(participantUserId: string): Promise<EventCredential[]> {
+    return await db.select()
+      .from(eventCredentials)
+      .where(eq(eventCredentials.participantUserId, participantUserId));
+  }
+
+  async getEventCredentialsByEvent(eventId: string): Promise<Array<EventCredential & { participant: User, event: Event }>> {
+    const result = await db.select({
+      id: eventCredentials.id,
+      participantUserId: eventCredentials.participantUserId,
+      eventId: eventCredentials.eventId,
+      eventUsername: eventCredentials.eventUsername,
+      eventPassword: eventCredentials.eventPassword,
+      createdAt: eventCredentials.createdAt,
+      participant: users,
+      event: events,
+    })
+    .from(eventCredentials)
+    .innerJoin(users, eq(eventCredentials.participantUserId, users.id))
+    .innerJoin(events, eq(eventCredentials.eventId, events.id))
+    .where(eq(eventCredentials.eventId, eventId));
+    
+    return result as any;
+  }
+
+  async isUserEventAdmin(userId: string, eventId: string): Promise<boolean> {
+    const [assignment] = await db.select()
+      .from(eventAdmins)
+      .where(and(eq(eventAdmins.adminId, userId), eq(eventAdmins.eventId, eventId)));
+    return !!assignment;
+  }
+
+  async getEventById(eventId: string): Promise<Event | undefined> {
+    return await this.getEvent(eventId);
   }
 }
 
