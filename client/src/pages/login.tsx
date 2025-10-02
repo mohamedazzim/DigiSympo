@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,8 +11,21 @@ export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'super_admin') {
+        setLocation('/admin/dashboard');
+      } else if (user.role === 'event_admin') {
+        setLocation('/event-admin/dashboard');
+      } else {
+        setLocation('/participant/dashboard');
+      }
+    }
+  }, [user, setLocation]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
