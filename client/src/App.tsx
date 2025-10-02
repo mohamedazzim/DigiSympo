@@ -24,6 +24,7 @@ import QuestionCreatePage from "@/pages/event-admin/question-create";
 import EventParticipantsPage from "@/pages/event-admin/event-participants";
 import ParticipantDashboard from "@/pages/participant/dashboard";
 import ParticipantEventsPage from "@/pages/participant/events";
+import ParticipantEventDetailsPage from "@/pages/participant/event-details";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -130,6 +131,9 @@ function Router() {
 
       <Route path="/participant/dashboard">
         <ProtectedRoute component={ParticipantDashboard} allowedRoles={['participant']} />
+      </Route>
+      <Route path="/participant/events/:eventId">
+        <ProtectedRoute component={ParticipantEventDetailsPage} allowedRoles={['participant']} />
       </Route>
       <Route path="/participant/events">
         <ProtectedRoute component={ParticipantEventsPage} allowedRoles={['participant']} />
