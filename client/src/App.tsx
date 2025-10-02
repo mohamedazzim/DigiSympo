@@ -7,6 +7,13 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import AdminDashboard from "@/pages/admin/dashboard";
+import EventsPage from "@/pages/admin/events";
+import EventCreatePage from "@/pages/admin/event-create";
+import EventEditPage from "@/pages/admin/event-edit";
+import EventDetailsPage from "@/pages/admin/event-details";
+import EventAdminsPage from "@/pages/admin/event-admins";
+import EventAdminCreatePage from "@/pages/admin/event-admin-create";
+import ReportsPage from "@/pages/admin/reports";
 import EventAdminDashboard from "@/pages/event-admin/dashboard";
 import ParticipantDashboard from "@/pages/participant/dashboard";
 
@@ -65,6 +72,27 @@ function Router() {
 
       <Route path="/admin/dashboard">
         <ProtectedRoute component={AdminDashboard} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/events">
+        <ProtectedRoute component={EventsPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/events/new">
+        <ProtectedRoute component={EventCreatePage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/events/:id/edit">
+        <ProtectedRoute component={EventEditPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/events/:id">
+        <ProtectedRoute component={EventDetailsPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/event-admins">
+        <ProtectedRoute component={EventAdminsPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/event-admins/create">
+        <ProtectedRoute component={EventAdminCreatePage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/reports">
+        <ProtectedRoute component={ReportsPage} allowedRoles={['super_admin']} />
       </Route>
 
       <Route path="/event-admin/dashboard">
