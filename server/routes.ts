@@ -241,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/events", requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-      if (req.user!.role === "super_admin") {
+      if (req.user!.role === "super_admin" || req.user!.role === "registration_committee") {
         const events = await storage.getEvents();
         res.json(events);
       } else if (req.user!.role === "event_admin") {
