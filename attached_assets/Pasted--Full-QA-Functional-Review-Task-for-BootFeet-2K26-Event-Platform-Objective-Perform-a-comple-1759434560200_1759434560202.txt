@@ -1,0 +1,87 @@
+🧪 Full QA & Functional Review Task for BootFeet 2K26 Event Platform
+📋 Objective:
+
+Perform a complete walkthrough of the entire application, specifically focusing on the Event Admin, Participant, and Round management pages. Identify and fix any broken elements, placeholder buttons, and missing or misfetched data.
+
+🔍 Detailed Requirements:
+✅ 1. Page-Wide Functional Testing
+
+Go through each page of the platform — especially within the Event Admin and Rounds sections.
+
+Click every button and check every link:
+
+Identify buttons that behave like placeholders (i.e., nothing happens when clicked).
+
+Fix those buttons by assigning proper functionality or removing them if unnecessary.
+
+Ensure modals, forms, and actions trigger correctly on click.
+
+📡 2. Data Integrity & API Binding
+
+On all pages (e.g., event lists, round details, participant responses, leaderboard):
+
+Check if all expected data is fetched and displayed properly.
+
+Fix any missing data issues caused by broken or incomplete API responses.
+
+Review and fix API endpoints if needed to ensure accurate and real-time data fetching.
+
+🚫 3. Fix Missing “Begin Test” Button
+
+The "Begin Test" button is missing on the Event Admin dashboard.
+
+This button must be visible and functional for admins to start a round.
+
+Upon clicking:
+
+The timer should start for all participants.
+
+The round should be locked for editing.
+
+Proper events should be triggered in the backend.
+
+⏱️ 4. Verify Round & Test Flow
+
+Make sure rounds can be started, timed, and ended correctly.
+
+Participants should:
+
+See the timer count down.
+
+Be auto-submitted when time ends.
+
+Not be able to restart or re-enter the test once submitted.
+
+🔐 5. Validate Participant Restrictions (Security Rules)
+
+Check enforcement of the following:
+
+No tab switching → should trigger auto-elimination.
+
+No exiting full screen → same result as above.
+
+No keyboard shortcuts allowed (Ctrl+C, Alt+Tab, etc.).
+
+🏁 6. Post-Test Features
+
+Ensure accurate:
+
+Score calculation (+1 per correct answer, no negative marking)
+
+Result display after the event ends
+
+Leaderboard rendering with correct ranks and participant data
+
+📌 Final Deliverables:
+
+✅ All placeholder or broken buttons fixed and functional
+
+✅ All missing or incorrect data issues resolved
+
+✅ “Begin Test” button implemented and fully working
+
+✅ All APIs tested and returning the correct data
+
+✅ All pages reviewed and corrected for full functionality
+
+✅ README/documentation updated if needed
