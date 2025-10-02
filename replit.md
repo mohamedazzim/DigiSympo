@@ -8,6 +8,13 @@ The Symposium Management System is a React-based web application for managing sy
 - Real-time leaderboards and reporting
 
 ## Recent Changes
+**October 2, 2025** - UI/UX Improvements Complete
+- Simplified Create Event form by removing Type and Status fields (now use defaults: type='general', status='draft')
+- Enhanced Event Admin creation with event selection dropdown (auto-assigns admin to selected event during creation)
+- Fixed dead links: Removed "Assign Events" and "Assign Admin" buttons that referenced non-existent routes
+- Added helpful description in Event Details explaining the new admin assignment workflow
+- All changes approved by architect with zero LSP errors
+
 **October 2, 2025** - Fresh GitHub Import Setup Complete
 - Provisioned PostgreSQL database for the Replit environment
 - Installed all npm dependencies (496 packages)
