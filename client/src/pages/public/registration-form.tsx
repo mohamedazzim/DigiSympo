@@ -99,6 +99,16 @@ export default function PublicRegistrationFormPage() {
     return `${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    const phoneRegex = /^[6-9]\d{9}$/;
+    return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -107,8 +117,21 @@ export default function PublicRegistrationFormPage() {
     const errors: string[] = [];
     
     form.formFields.forEach((field) => {
-      if (field.required && !formData[field.id]?.trim()) {
+      const value = formData[field.id]?.trim();
+      
+      if (field.required && !value) {
         errors.push(`${field.label} is required`);
+        return;
+      }
+
+      if (value) {
+        if (field.type === 'email' && !validateEmail(value)) {
+          errors.push(`Please enter a valid email address for ${field.label}`);
+        }
+        
+        if (field.type === 'tel' && !validatePhone(value)) {
+          errors.push(`Please enter a valid 10-digit mobile number for ${field.label}`);
+        }
       }
     });
 
@@ -188,9 +211,9 @@ export default function PublicRegistrationFormPage() {
             <div className="bg-muted/50 rounded-lg p-4 text-sm text-left">
               <p className="font-semibold mb-2">What happens next?</p>
               <ul className="space-y-1 text-muted-foreground">
-                <li>• Your registration will be reviewed by our team</li>
-                <li>• You'll receive login credentials via email once approved</li>
-                <li>• Check your email regularly for updates</li>
+                <li>• Your registration will be reviewed by the registration committee</li>
+                <li>• Login credentials will be provided to you after approval</li>
+                <li>• Please contact the organizing team for updates on your registration status</li>
               </ul>
             </div>
           </CardContent>

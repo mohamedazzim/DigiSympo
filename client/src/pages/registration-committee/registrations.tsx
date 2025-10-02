@@ -74,6 +74,34 @@ export default function RegistrationCommitteeRegistrationsPage() {
     }
   };
 
+  const getFieldValue = (submittedData: Record<string, string>, fieldLabel: string): string => {
+    for (const [key, value] of Object.entries(submittedData)) {
+      const lowerLabel = fieldLabel.toLowerCase();
+      const lowerValue = value?.toString().toLowerCase() || '';
+      
+      if (key.toLowerCase().includes(lowerLabel)) {
+        return value;
+      }
+    }
+    
+    const entries = Object.entries(submittedData);
+    if (fieldLabel.toLowerCase().includes('name')) {
+      const nameEntry = entries.find(([k, v]) => 
+        v && typeof v === 'string' && v.includes(' ') && !v.includes('@')
+      );
+      return nameEntry ? nameEntry[1] : 'N/A';
+    }
+    
+    if (fieldLabel.toLowerCase().includes('email')) {
+      const emailEntry = entries.find(([k, v]) => 
+        v && typeof v === 'string' && v.includes('@')
+      );
+      return emailEntry ? emailEntry[1] : 'N/A';
+    }
+    
+    return 'N/A';
+  };
+
   const copyAllCredentials = () => {
     if (credentials) {
       let text = `Main Account Credentials:\nUsername: ${credentials.main.username}\nPassword: ${credentials.main.password}\nEmail: ${credentials.main.email}\n\n`;
@@ -125,10 +153,10 @@ export default function RegistrationCommitteeRegistrationsPage() {
                   {registrations.map((registration) => (
                     <TableRow key={registration.id} data-testid={`row-registration-${registration.id}`}>
                       <TableCell data-testid={`text-name-${registration.id}`}>
-                        {registration.submittedData.fullName || registration.submittedData['Full Name'] || 'N/A'}
+                        {getFieldValue(registration.submittedData, 'name')}
                       </TableCell>
                       <TableCell data-testid={`text-email-${registration.id}`}>
-                        {registration.submittedData.email || registration.submittedData['Email'] || 'N/A'}
+                        {getFieldValue(registration.submittedData, 'email')}
                       </TableCell>
                       <TableCell data-testid={`text-events-${registration.id}`}>
                         <div className="flex flex-wrap gap-1">
@@ -184,13 +212,13 @@ export default function RegistrationCommitteeRegistrationsPage() {
             </DialogHeader>
             {selectedRegistration && (
               <div className="space-y-3" data-testid="registration-details">
-                <div>
-                  <span className="font-medium">Name: </span>
-                  {selectedRegistration.submittedData.fullName || selectedRegistration.submittedData['Full Name']}
-                </div>
-                <div>
-                  <span className="font-medium">Email: </span>
-                  {selectedRegistration.submittedData.email || selectedRegistration.submittedData['Email']}
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-base">Submitted Information:</h3>
+                  {Object.entries(selectedRegistration.submittedData).map(([key, value]) => (
+                    <div key={key} className="text-sm">
+                      <span className="font-medium">{value}</span>
+                    </div>
+                  ))}
                 </div>
                 <div>
                   <span className="font-medium">Selected Events: </span>
