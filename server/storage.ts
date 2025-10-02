@@ -71,16 +71,19 @@ export interface IStorage {
   generateEventReport(eventId: string, generatedBy: string): Promise<Report>;
   generateSymposiumReport(generatedBy: string): Promise<Report>;
   
-  createRegistrationForm(eventId: string, formSlug: string, formFields: any[]): Promise<RegistrationForm>;
-  getRegistrationFormsByEvent(eventId: string): Promise<RegistrationForm[]>;
+  createRegistrationForm(title: string, description: string, formFields: any[], slug: string): Promise<RegistrationForm>;
   getRegistrationFormBySlug(slug: string): Promise<RegistrationForm | undefined>;
   getAllRegistrationForms(): Promise<RegistrationForm[]>;
+  getActiveRegistrationForm(): Promise<RegistrationForm | undefined>;
+  updateRegistrationForm(id: string, updates: Partial<RegistrationForm>): Promise<RegistrationForm | undefined>;
   
-  createRegistration(formId: string, eventId: string, data: Record<string, string>): Promise<Registration>;
+  createRegistration(formId: string, data: Record<string, string>, selectedEvents: string[]): Promise<Registration>;
   getRegistrations(): Promise<Registration[]>;
-  getRegistrationsByEvent(eventId: string): Promise<Registration[]>;
   getRegistration(id: string): Promise<Registration | undefined>;
   updateRegistrationStatus(id: string, status: 'pending' | 'paid' | 'declined', participantUserId: string | null, processedBy: string): Promise<Registration>;
+  
+  getEventsByIds(eventIds: string[]): Promise<Event[]>;
+  createParticipant(userId: string, eventId: string): Promise<Participant>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -692,13 +695,15 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async createRegistrationForm(eventId: string, formSlug: string, formFields: any[]): Promise<RegistrationForm> {
-    const [form] = await db.insert(registrationForms).values({ eventId, formSlug, formFields }).returning();
+  async createRegistrationForm(title: string, description: string, formFields: any[], slug: string): Promise<RegistrationForm> {
+    const [form] = await db.insert(registrationForms).values({ 
+      title, 
+      description, 
+      formSlug: slug, 
+      formFields,
+      isActive: true 
+    }).returning();
     return form;
-  }
-
-  async getRegistrationFormsByEvent(eventId: string): Promise<RegistrationForm[]> {
-    return await db.select().from(registrationForms).where(eq(registrationForms.eventId, eventId));
   }
 
   async getRegistrationFormBySlug(slug: string): Promise<RegistrationForm | undefined> {
@@ -710,11 +715,27 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(registrationForms).orderBy(desc(registrationForms.createdAt));
   }
 
-  async createRegistration(formId: string, eventId: string, data: Record<string, string>): Promise<Registration> {
+  async getActiveRegistrationForm(): Promise<RegistrationForm | undefined> {
+    const [form] = await db.select().from(registrationForms)
+      .where(eq(registrationForms.isActive, true))
+      .orderBy(desc(registrationForms.createdAt))
+      .limit(1);
+    return form;
+  }
+
+  async updateRegistrationForm(id: string, updates: Partial<RegistrationForm>): Promise<RegistrationForm | undefined> {
+    const [form] = await db.update(registrationForms)
+      .set(updates)
+      .where(eq(registrationForms.id, id))
+      .returning();
+    return form;
+  }
+
+  async createRegistration(formId: string, data: Record<string, string>, selectedEvents: string[]): Promise<Registration> {
     const [registration] = await db.insert(registrations).values({
       formId,
-      eventId,
       submittedData: data,
+      selectedEvents,
       paymentStatus: 'pending',
       participantUserId: null,
       processedBy: null
@@ -724,10 +745,6 @@ export class DatabaseStorage implements IStorage {
 
   async getRegistrations(): Promise<Registration[]> {
     return await db.select().from(registrations).orderBy(desc(registrations.submittedAt));
-  }
-
-  async getRegistrationsByEvent(eventId: string): Promise<Registration[]> {
-    return await db.select().from(registrations).where(eq(registrations.eventId, eventId)).orderBy(desc(registrations.submittedAt));
   }
 
   async getRegistration(id: string): Promise<Registration | undefined> {
@@ -743,6 +760,22 @@ export class DatabaseStorage implements IStorage {
       processedAt: new Date()
     }).where(eq(registrations.id, id)).returning();
     return registration;
+  }
+
+  async getEventsByIds(eventIds: string[]): Promise<Event[]> {
+    if (eventIds.length === 0) return [];
+    return await db.select().from(events).where(
+      sql`${events.id} IN (${sql.join(eventIds.map(id => sql`${id}`), sql`, `)})`
+    );
+  }
+
+  async createParticipant(userId: string, eventId: string): Promise<Participant> {
+    const [participant] = await db.insert(participants).values({
+      userId,
+      eventId,
+      status: 'registered'
+    }).returning();
+    return participant;
   }
 }
 

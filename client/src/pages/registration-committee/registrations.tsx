@@ -101,8 +101,7 @@ export default function RegistrationCommitteeRegistrationsPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Event</TableHead>
+                    <TableHead>Selected Events</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Submitted</TableHead>
                     <TableHead>Actions</TableHead>
@@ -112,16 +111,23 @@ export default function RegistrationCommitteeRegistrationsPage() {
                   {registrations.map((registration) => (
                     <TableRow key={registration.id} data-testid={`row-registration-${registration.id}`}>
                       <TableCell data-testid={`text-name-${registration.id}`}>
-                        {registration.submittedData.fullName}
+                        {registration.submittedData.fullName || registration.submittedData['Full Name'] || 'N/A'}
                       </TableCell>
                       <TableCell data-testid={`text-email-${registration.id}`}>
-                        {registration.submittedData.email}
+                        {registration.submittedData.email || registration.submittedData['Email'] || 'N/A'}
                       </TableCell>
-                      <TableCell data-testid={`text-phone-${registration.id}`}>
-                        {registration.submittedData.phone || 'N/A'}
-                      </TableCell>
-                      <TableCell data-testid={`text-event-${registration.id}`}>
-                        {getEventName(registration.eventId)}
+                      <TableCell data-testid={`text-events-${registration.id}`}>
+                        <div className="flex flex-wrap gap-1">
+                          {registration.selectedEvents && registration.selectedEvents.length > 0 ? (
+                            registration.selectedEvents.map((eventId) => (
+                              <Badge key={eventId} variant="outline" className="text-xs">
+                                {getEventName(eventId)}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-sm">No events</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusColor(registration.paymentStatus)} data-testid={`badge-status-${registration.id}`}>
@@ -163,22 +169,36 @@ export default function RegistrationCommitteeRegistrationsPage() {
               </DialogDescription>
             </DialogHeader>
             {selectedRegistration && (
-              <div className="space-y-2" data-testid="registration-details">
+              <div className="space-y-3" data-testid="registration-details">
                 <div>
                   <span className="font-medium">Name: </span>
-                  {selectedRegistration.submittedData.fullName}
+                  {selectedRegistration.submittedData.fullName || selectedRegistration.submittedData['Full Name']}
                 </div>
                 <div>
                   <span className="font-medium">Email: </span>
-                  {selectedRegistration.submittedData.email}
+                  {selectedRegistration.submittedData.email || selectedRegistration.submittedData['Email']}
                 </div>
                 <div>
-                  <span className="font-medium">Phone: </span>
-                  {selectedRegistration.submittedData.phone}
+                  <span className="font-medium">Selected Events: </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {selectedRegistration.selectedEvents && selectedRegistration.selectedEvents.length > 0 ? (
+                      selectedRegistration.selectedEvents.map((eventId) => (
+                        <Badge key={eventId} variant="secondary">
+                          {getEventName(eventId)}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No events selected</span>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <span className="font-medium">Event: </span>
-                  {getEventName(selectedRegistration.eventId)}
+                <div className="bg-muted/50 p-3 rounded-md text-sm">
+                  <p className="font-medium mb-1">What will happen:</p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    <li>• Participant account will be created</li>
+                    <li>• User will be registered for all {selectedRegistration.selectedEvents?.length || 0} selected event(s)</li>
+                    <li>• Login credentials will be generated</li>
+                  </ul>
                 </div>
               </div>
             )}

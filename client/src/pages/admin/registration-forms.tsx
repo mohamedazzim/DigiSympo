@@ -1,21 +1,37 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
 import { Copy, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/layouts/AdminLayout";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { RegistrationForm, Event } from "@shared/schema";
 
 export default function RegistrationFormsPage() {
   const { toast } = useToast();
 
-  const { data: forms, isLoading } = useQuery<(RegistrationForm & { event?: Event })[]>({
+  const { data: forms, isLoading } = useQuery<RegistrationForm[]>({
     queryKey: ['/api/registration-forms/all'],
   });
 
   const { data: events } = useQuery<Event[]>({
     queryKey: ['/api/events'],
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      await apiRequest('PATCH', `/api/registration-forms/${id}`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/registration-forms/all'] });
+      toast({
+        title: "Updated",
+        description: "Form status updated successfully",
+      });
+    },
   });
 
   const copyLink = (slug: string) => {
@@ -52,36 +68,64 @@ export default function RegistrationFormsPage() {
             {forms.map((form) => (
               <Card key={form.id} data-testid={`card-form-${form.id}`}>
                 <CardHeader>
-                  <CardTitle data-testid={`text-form-slug-${form.id}`}>{form.formSlug}</CardTitle>
-                  <CardDescription>
-                    Event ID: {form.eventId}
-                  </CardDescription>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <CardTitle className="text-xl" data-testid={`text-form-title-${form.id}`}>
+                          {form.title}
+                        </CardTitle>
+                        <Badge variant={form.isActive ? "default" : "secondary"}>
+                          {form.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      {form.description && (
+                        <CardDescription className="text-base" data-testid={`text-form-description-${form.id}`}>
+                          {form.description}
+                        </CardDescription>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium">Active</label>
+                      <Switch
+                        checked={form.isActive}
+                        onCheckedChange={(checked) => 
+                          toggleActiveMutation.mutate({ id: form.id, isActive: checked })
+                        }
+                        data-testid={`switch-active-${form.id}`}
+                      />
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="font-medium">Shareable Link: </span>
-                      <code className="bg-muted px-2 py-1 rounded text-sm" data-testid={`text-link-${form.id}`}>
-                        {window.location.origin}/register/{form.formSlug}
-                      </code>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-muted-foreground">Form Fields:</span>
+                        <p className="mt-1">{form.formFields.length} fields configured</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-muted-foreground">Created:</span>
+                        <p className="mt-1">{new Date(form.createdAt).toLocaleDateString()}</p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-medium">Created: </span>
-                      {new Date(form.createdAt).toLocaleDateString()}
+
+                    <div className="pt-2 border-t">
+                      <span className="text-sm font-medium text-muted-foreground">Shareable Link:</span>
+                      <div className="mt-2 flex items-center gap-2">
+                        <code className="flex-1 bg-muted px-3 py-2 rounded text-sm break-all" data-testid={`text-link-${form.id}`}>
+                          {window.location.origin}/register/{form.formSlug}
+                        </code>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyLink(form.formSlug)}
+                          data-testid={`button-copy-${form.id}`}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-medium">Fields: </span>
-                      {form.formFields.length} fields
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyLink(form.formSlug)}
-                      data-testid={`button-copy-${form.id}`}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Link
-                    </Button>
                   </div>
                 </CardContent>
               </Card>

@@ -6,7 +6,7 @@ import AdminLayout from "@/components/layouts/AdminLayout";
 import type { Registration, Event } from "@shared/schema";
 
 export default function AdminRegistrationsPage() {
-  const { data: registrations, isLoading } = useQuery<(Registration)[]>({
+  const { data: registrations, isLoading } = useQuery<Registration[]>({
     queryKey: ['/api/registrations'],
   });
 
@@ -54,8 +54,7 @@ export default function AdminRegistrationsPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Event</TableHead>
+                    <TableHead>Selected Events</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Submitted</TableHead>
                   </TableRow>
@@ -64,16 +63,23 @@ export default function AdminRegistrationsPage() {
                   {registrations.map((registration) => (
                     <TableRow key={registration.id} data-testid={`row-registration-${registration.id}`}>
                       <TableCell data-testid={`text-name-${registration.id}`}>
-                        {registration.submittedData.fullName}
+                        {registration.submittedData.fullName || registration.submittedData['Full Name'] || 'N/A'}
                       </TableCell>
                       <TableCell data-testid={`text-email-${registration.id}`}>
-                        {registration.submittedData.email}
+                        {registration.submittedData.email || registration.submittedData['Email'] || 'N/A'}
                       </TableCell>
-                      <TableCell data-testid={`text-phone-${registration.id}`}>
-                        {registration.submittedData.phone || 'N/A'}
-                      </TableCell>
-                      <TableCell data-testid={`text-event-${registration.id}`}>
-                        {getEventName(registration.eventId)}
+                      <TableCell data-testid={`text-events-${registration.id}`}>
+                        <div className="flex flex-wrap gap-1">
+                          {registration.selectedEvents && registration.selectedEvents.length > 0 ? (
+                            registration.selectedEvents.map((eventId) => (
+                              <Badge key={eventId} variant="outline" className="text-xs">
+                                {getEventName(eventId)}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-sm">No events</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusColor(registration.paymentStatus)} data-testid={`badge-status-${registration.id}`}>

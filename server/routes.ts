@@ -22,6 +22,53 @@ function generateSecurePassword(): string {
   return crypto.randomBytes(12).toString('base64').slice(0, 16);
 }
 
+function timesOverlap(start1: Date | null, end1: Date | null, start2: Date | null, end2: Date | null): boolean {
+  if (!start1 || !end1 || !start2 || !end2) return false;
+  return start1 < end2 && start2 < end1;
+}
+
+async function validateEventSelection(eventIds: string[]): Promise<{ valid: boolean; error?: string }> {
+  if (eventIds.length === 0) {
+    return { valid: false, error: 'At least one event must be selected' };
+  }
+
+  const events = await storage.getEventsByIds(eventIds);
+  
+  if (events.length !== eventIds.length) {
+    return { valid: false, error: 'One or more selected events not found' };
+  }
+  
+  const technical = events.filter(e => e.category === 'technical');
+  const nonTechnical = events.filter(e => e.category === 'non_technical');
+  
+  if (technical.length > 1) {
+    return { valid: false, error: 'Only one technical event can be selected' };
+  }
+  if (nonTechnical.length > 1) {
+    return { valid: false, error: 'Only one non-technical event can be selected' };
+  }
+  
+  for (let i = 0; i < events.length; i++) {
+    for (let j = i + 1; j < events.length; j++) {
+      const e1 = events[i];
+      const e2 = events[j];
+      
+      const e1Rounds = await storage.getRoundsByEvent(e1.id);
+      const e2Rounds = await storage.getRoundsByEvent(e2.id);
+      
+      for (const r1 of e1Rounds) {
+        for (const r2 of e2Rounds) {
+          if (timesOverlap(r1.startTime, r1.endTime, r2.startTime, r2.endTime)) {
+            return { valid: false, error: `Events "${e1.name}" and "${e2.name}" have overlapping times` };
+          }
+        }
+      }
+    }
+  }
+  
+  return { valid: true };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/users", requireAuth, async (req: AuthRequest, res: Response) => {
@@ -976,18 +1023,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/events/:eventId/registration-forms", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+  app.post("/api/registration-forms", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
     try {
-      const { eventId } = req.params;
-      const { formFields } = req.body;
+      const { title, description, formFields } = req.body;
       
-      const event = await storage.getEvent(eventId);
-      if (!event) {
-        return res.status(404).json({ message: "Event not found" });
+      if (!title || !formFields || !Array.isArray(formFields)) {
+        return res.status(400).json({ message: "Title and formFields are required" });
       }
       
-      const slug = generateFormSlug(event.name);
-      const form = await storage.createRegistrationForm(eventId, slug, formFields);
+      const slug = generateFormSlug(title);
+      const form = await storage.createRegistrationForm(title, description || '', formFields, slug);
       
       res.status(201).json(form);
     } catch (error) {
@@ -996,12 +1041,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/events/:eventId/registration-forms", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+  app.get("/api/registration-forms/active", async (req: Request, res: Response) => {
     try {
-      const forms = await storage.getRegistrationFormsByEvent(req.params.eventId);
-      res.json(forms);
+      const form = await storage.getActiveRegistrationForm();
+      if (!form) {
+        return res.status(404).json({ message: "No active registration form found" });
+      }
+      res.json(form);
     } catch (error) {
-      console.error("Get registration forms error:", error);
+      console.error("Get active registration form error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/registration-forms/:id", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const updates = req.body;
+      const form = await storage.updateRegistrationForm(req.params.id, updates);
+      if (!form) {
+        return res.status(404).json({ message: "Form not found" });
+      }
+      res.json(form);
+    } catch (error) {
+      console.error("Update registration form error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1029,6 +1091,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/events/for-registration", async (req: Request, res: Response) => {
+    try {
+      const activeForm = await storage.getActiveRegistrationForm();
+      
+      if (!activeForm) {
+        return res.status(404).json({ message: 'No active registration form found' });
+      }
+
+      const allEvents = await storage.getEvents();
+      
+      const allowedEvents = allEvents.filter(event => 
+        activeForm.allowedCategories.includes(event.category)
+      );
+      
+      const eventsWithRounds = await Promise.all(
+        allowedEvents.map(async (event) => {
+          const rounds = await storage.getRoundsByEvent(event.id);
+          return {
+            id: event.id,
+            name: event.name,
+            description: event.description,
+            category: event.category,
+            rounds: rounds.map(r => ({
+              id: r.id,
+              name: r.name,
+              startTime: r.startTime,
+              endTime: r.endTime
+            }))
+          };
+        })
+      );
+      res.json(eventsWithRounds);
+    } catch (error) {
+      console.error("Get events for registration error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/registration-forms/:slug/submit", async (req: Request, res: Response) => {
     try {
       const form = await storage.getRegistrationFormBySlug(req.params.slug);
@@ -1036,7 +1136,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Form not found" });
       }
       
-      const registration = await storage.createRegistration(form.id, form.eventId, req.body);
+      if (!form.isActive) {
+        return res.status(400).json({ message: 'This form is no longer accepting submissions' });
+      }
+      
+      const { submittedData, selectedEvents } = req.body;
+      
+      if (!submittedData || !selectedEvents || !Array.isArray(selectedEvents)) {
+        return res.status(400).json({ message: "submittedData and selectedEvents are required" });
+      }
+
+      const events = await storage.getEventsByIds(selectedEvents);
+      const invalidEvents = events.filter(event => 
+        !form.allowedCategories.includes(event.category)
+      );
+      
+      if (invalidEvents.length > 0) {
+        return res.status(400).json({ 
+          message: `The following events are not allowed by this form: ${invalidEvents.map(e => e.name).join(', ')}` 
+        });
+      }
+
+      const validation = await validateEventSelection(selectedEvents);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const registration = await storage.createRegistration(form.id, submittedData, selectedEvents);
       res.status(201).json(registration);
     } catch (error) {
       console.error("Submit registration error:", error);
@@ -1087,11 +1213,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: 'participant',
       });
       
-      await storage.registerParticipant({
-        userId: newUser.id,
-        eventId: registration.eventId,
-        status: 'registered'
-      });
+      for (const eventId of registration.selectedEvents) {
+        await storage.createParticipant(newUser.id, eventId);
+      }
       
       const updated = await storage.updateRegistrationStatus(
         req.params.id,

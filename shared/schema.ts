@@ -21,6 +21,7 @@ export const events = pgTable("events", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   type: text("type").notNull(), // quiz, coding, general, etc.
+  category: varchar("category", { enum: ['technical', 'non_technical'] }).notNull().default('technical'),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   status: text("status").notNull().default('draft'), // draft, active, completed
@@ -157,12 +158,15 @@ export const reports = pgTable("reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Registration Forms - public registration forms for events
+// Registration Forms - public registration forms for events (general, not tied to specific event)
 export const registrationForms = pgTable("registration_forms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  title: varchar("title").notNull(),
+  description: text("description"),
   formSlug: varchar("form_slug").unique().notNull(),
-  formFields: jsonb("form_fields").notNull().$type<Array<{id: string, label: string, type: string, required: boolean}>>(),
+  formFields: jsonb("form_fields").notNull().$type<Array<{id: string, label: string, type: 'text' | 'email' | 'tel' | 'number', required: boolean, placeholder?: string}>>(),
+  allowedCategories: jsonb("allowed_categories").notNull().default(sql`'["technical", "non_technical"]'::jsonb`).$type<Array<'technical' | 'non_technical'>>(),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -170,8 +174,8 @@ export const registrationForms = pgTable("registration_forms", {
 export const registrations = pgTable("registrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   formId: varchar("form_id").references(() => registrationForms.id, { onDelete: 'cascade' }).notNull(),
-  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }).notNull(),
   submittedData: jsonb("submitted_data").notNull().$type<Record<string, string>>(),
+  selectedEvents: jsonb("selected_events").notNull().$type<Array<string>>(),
   paymentStatus: varchar("payment_status", { enum: ['pending', 'paid', 'declined'] }).default('pending').notNull(),
   participantUserId: varchar("participant_user_id").references(() => users.id, { onDelete: 'set null' }),
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),

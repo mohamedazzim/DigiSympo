@@ -40,6 +40,7 @@ export default function EventEditPage() {
       name: '',
       description: '',
       type: 'quiz',
+      category: 'technical',
       status: 'draft',
       createdBy: '',
       startDate: '',
@@ -53,6 +54,7 @@ export default function EventEditPage() {
         name: event.name,
         description: event.description,
         type: event.type,
+        category: event.category,
         status: event.status,
         createdBy: event.createdBy,
         startDate: event.startDate ? new Date(event.startDate).toISOString().slice(0, 16) : '',
@@ -67,6 +69,7 @@ export default function EventEditPage() {
         name: data.name,
         description: data.description,
         type: data.type,
+        category: data.category,
         status: data.status,
         startDate: data.startDate ? new Date(data.startDate) : null,
         endDate: data.endDate ? new Date(data.endDate) : null,
@@ -161,6 +164,28 @@ export default function EventEditPage() {
                           data-testid="input-description"
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-category">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="technical">Technical</SelectItem>
+                          <SelectItem value="non_technical">Non-Technical</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

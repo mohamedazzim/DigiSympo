@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { insertEventSchema, type InsertEvent } from '@shared/schema';
@@ -32,6 +33,7 @@ export default function EventCreatePage() {
       name: '',
       description: '',
       type: 'general',
+      category: 'technical',
       status: 'draft',
       createdBy: user?.id || '',
       startDate: '',
@@ -45,6 +47,7 @@ export default function EventCreatePage() {
         name: data.name,
         description: data.description,
         type: data.type,
+        category: data.category,
         status: data.status,
         createdBy: user?.id || '',
         startDate: data.startDate ? new Date(data.startDate) : null,
@@ -121,6 +124,28 @@ export default function EventCreatePage() {
                           data-testid="input-description"
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-category">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="technical">Technical</SelectItem>
+                          <SelectItem value="non_technical">Non-Technical</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
