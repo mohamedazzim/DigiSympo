@@ -4,9 +4,10 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, Users, FileText, Settings } from 'lucide-react';
+import AdminLayout from '@/components/layouts/AdminLayout';
 
 export default function AdminDashboard() {
-  const { user, logout, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -24,20 +25,15 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Super Admin Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">Welcome, {user.fullName}</span>
-            <Button variant="outline" onClick={logout}>Logout</Button>
-          </div>
+    <AdminLayout>
+      <div className="p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-2">Welcome back, {user.fullName}</p>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/admin/events')}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/admin/events')} data-testid="card-events">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Events</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -48,7 +44,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/admin/event-admins')}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/admin/event-admins')} data-testid="card-event-admins">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Event Admins</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -59,7 +55,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/admin/reports')}>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/admin/reports')} data-testid="card-reports">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Reports</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
@@ -70,7 +66,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" data-testid="card-settings">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Settings</CardTitle>
               <Settings className="h-4 w-4 text-muted-foreground" />
@@ -88,15 +84,15 @@ export default function AdminDashboard() {
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button className="w-full" onClick={() => setLocation('/admin/events/new')}>
+            <Button className="w-full" onClick={() => setLocation('/admin/events/new')} data-testid="button-create-event">
               Create New Event
             </Button>
-            <Button className="w-full" variant="outline" onClick={() => setLocation('/admin/event-admins/create')}>
+            <Button className="w-full" variant="outline" onClick={() => setLocation('/admin/event-admins/create')} data-testid="button-create-admin">
               Create Event Admin Account
             </Button>
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
