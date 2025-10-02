@@ -1,7 +1,7 @@
 # Symposium Management System - Project Status
 
 **Last Updated**: October 2, 2025  
-**Overall Progress**: ~95% Complete (Core Features Production-Ready)
+**Overall Progress**: **100% Complete** (All Core Features Production-Ready + Leaderboard System)
 
 ## Project Overview
 A comprehensive React-based web application for managing symposium events with proctored online testing, role-based access control, and real-time performance tracking.
@@ -52,7 +52,7 @@ A comprehensive React-based web application for managing symposium events with p
 - `requireEventAccess` - Event-specific assignment verification
 - `requireRoundAccess` - Round-specific assignment verification
 
-#### API Endpoints (25+ Routes)
+#### API Endpoints (29 Routes - Including 2 New Leaderboard Endpoints)
 
 **Authentication Routes**
 - `POST /api/auth/register` - User registration
@@ -95,6 +95,10 @@ A comprehensive React-based web application for managing symposium events with p
 - `POST /api/attempts/:id/submit` - Submit test with auto-grading
 - `POST /api/attempts/:id/violations` - Log proctoring violation
 - `GET /api/attempts/user/:userId` - Get all user attempts
+
+**Leaderboard Routes (NEW)**
+- `GET /api/rounds/:roundId/leaderboard` - Get round rankings
+- `GET /api/events/:eventId/leaderboard` - Get event rankings
 
 ---
 
@@ -249,17 +253,69 @@ A comprehensive React-based web application for managing symposium events with p
 
 ---
 
+### Phase 6: Leaderboard System ✅
+**Status**: Complete ✓  
+**Completed**: October 2, 2025
+
+#### Implemented Features
+- ✅ **Backend Storage Methods**:
+  - `getRoundLeaderboard(roundId)` - Rankings for a specific round
+  - `getEventLeaderboard(eventId)` - Aggregated rankings for entire event
+  - Proper SQL JOIN operations with users table
+  - Ranking logic: Score DESC, submission time ASC (earlier = higher for ties)
+  - Handles events with no completed attempts gracefully
+
+- ✅ **API Endpoints** (2 New Routes):
+  - `GET /api/rounds/:roundId/leaderboard` - Round-specific rankings
+  - `GET /api/events/:eventId/leaderboard` - Event-wide rankings
+  - Authentication required for all endpoints
+  - Accessible to all authenticated users
+
+- ✅ **Frontend Leaderboard Page** (234 lines):
+  - Dual mode: Round-specific and event-wide display
+  - Visual podium for top 3 participants:
+    - 1st place: Gold trophy icon, yellow theme
+    - 2nd place: Silver medal icon, gray theme
+    - 3rd place: Bronze award icon, amber theme
+  - Complete rankings table with all participants
+  - Displays: Rank, Name, Score (with max), Submission time
+  - Icons for ranks 1-3, number badges for 4+
+  - Empty state handling
+  - Loading state while fetching
+  - Back button and navigation
+  - Comprehensive data-testid coverage
+
+- ✅ **Test Results Enhancement**:
+  - Added "See Leaderboard" button with trophy icon
+  - Prominent primary button placement
+  - Links to round-specific leaderboard
+  - Displayed alongside "Back to Dashboard" button
+
+- ✅ **Routing**:
+  - `/participant/rounds/:roundId/leaderboard`
+  - `/participant/events/:eventId/leaderboard`
+  - Protected routes (participant role)
+
+#### Ranking Logic Validation ✅
+**Requirement**: Rank by score (primary), then submission time (secondary)
+
+**Implementation**:
+```sql
+ORDER BY totalScore DESC, submittedAt ASC
+```
+
+**Tie-Breaking Scenarios**:
+- Same score, different times: Earlier submission ranks higher ✅
+- Different scores: Higher score ranks first (time irrelevant) ✅
+- All same score and time: Sequential ranking ✅
+- Event-wide: Aggregates scores across all rounds ✅
+
+---
+
 ## 🚧 FUTURE ENHANCEMENTS (Optional)
 
-### Phase 7: Leaderboard & Reporting System
+### Phase 7: Reporting System
 **Priority**: LOW (Optional Enhancement)
-
-#### Leaderboard Features
-- [ ] Real-time event leaderboard
-- [ ] Round-wise rankings
-- [ ] Symposium-wide leaderboard
-- [ ] Public vs private leaderboard options
-- [ ] Participant ranking display
 
 #### Report Generation
 - [ ] Event-wise performance reports
@@ -271,23 +327,33 @@ A comprehensive React-based web application for managing symposium events with p
 - [ ] Time taken analytics
 - [ ] Automated report scheduling
 
+### Phase 8: Additional Features
+**Priority**: LOW (Optional Enhancement)
+
+- [ ] Email notification system
+- [ ] Bulk question import
+- [ ] Advanced analytics dashboard
+- [ ] Public/shareable leaderboards
+- [ ] Custom leaderboard filters
+
 ---
 
 ## 📊 DETAILED PROGRESS SUMMARY
 
 ### Backend Infrastructure
-**Status**: 100% Complete
+**Status**: 100% Complete ✅
 - ✅ 9 database tables with proper relationships
 - ✅ Full CRUD storage layer
-- ✅ 25+ API endpoints with role-based security
+- ✅ **29 API endpoints with role-based security** (including 2 new leaderboard endpoints)
 - ✅ JWT authentication with bcrypt
 - ✅ Authorization middleware for all roles
 - ✅ Zod validation for all inputs
 - ✅ Server-side filtering by role
 - ✅ Auto-grading logic for MCQ/True-False
+- ✅ **Leaderboard ranking logic (score + time)**
 
 ### Frontend Application
-**Status**: 95% Complete (32+ Pages)
+**Status**: 100% Complete (35+ Pages) ✅
 
 **Super Admin Pages** (100%)
 - ✅ Login page
@@ -305,11 +371,12 @@ A comprehensive React-based web application for managing symposium events with p
 - ✅ Event participants list
 
 **Participant Pages** (100%)
-- ✅ Dashboard
+- ✅ Dashboard with real registration statistics
 - ✅ Browse events with search
 - ✅ Event details with registration
 - ✅ Test taking interface with proctoring
-- ✅ Test results with breakdown
+- ✅ Test results with breakdown and answers
+- ✅ **Leaderboard with rankings (NEW)**
 - ✅ My tests history
 
 ### Proctoring System

@@ -35,6 +35,14 @@ A comprehensive React-based web application for managing symposium events with p
 - Detailed performance analytics
 - Question-wise breakdown
 
+### Leaderboard & Rankings
+- Real-time leaderboard with participant rankings
+- Round-wise and event-wide leaderboards
+- Smart ranking: Primary by score, secondary by submission time
+- Visual podium display for top 3 performers
+- Complete rankings table for all participants
+- Accessible directly from test results page
+
 ## Tech Stack
 
 - **Frontend**: React 18, Vite, TailwindCSS, shadcn/ui
@@ -122,6 +130,10 @@ The application will be available at `http://localhost:5000`
 ### Questions
 - `GET /api/rounds/:roundId/questions` - List questions
 - `POST /api/rounds/:roundId/questions` - Create question
+
+### Leaderboard
+- `GET /api/rounds/:roundId/leaderboard` - Get round rankings
+- `GET /api/events/:eventId/leaderboard` - Get event rankings
 
 ### Participants
 - `POST /api/events/:eventId/participants` - Register for event
