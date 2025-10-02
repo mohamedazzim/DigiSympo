@@ -256,6 +256,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/events/for-registration", async (req: Request, res: Response) => {
+    try {
+      const activeForm = await storage.getActiveRegistrationForm();
+      
+      if (!activeForm) {
+        return res.status(404).json({ message: 'No active registration form found' });
+      }
+
+      const allEvents = await storage.getEvents();
+      
+      const allowedEvents = allEvents.filter(event => 
+        activeForm.allowedCategories.includes(event.category)
+      );
+      
+      const eventsWithRounds = await Promise.all(
+        allowedEvents.map(async (event) => {
+          const rounds = await storage.getRoundsByEvent(event.id);
+          return {
+            id: event.id,
+            name: event.name,
+            description: event.description,
+            category: event.category,
+            rounds: rounds.map(r => ({
+              id: r.id,
+              name: r.name,
+              startTime: r.startTime,
+              endTime: r.endTime
+            }))
+          };
+        })
+      );
+      res.json(eventsWithRounds);
+    } catch (error) {
+      console.error("Get events for registration error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/events/:id", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
     try {
       const event = await storage.getEvent(req.params.id);
@@ -1087,44 +1125,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(form);
     } catch (error) {
       console.error("Get registration form error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/events/for-registration", async (req: Request, res: Response) => {
-    try {
-      const activeForm = await storage.getActiveRegistrationForm();
-      
-      if (!activeForm) {
-        return res.status(404).json({ message: 'No active registration form found' });
-      }
-
-      const allEvents = await storage.getEvents();
-      
-      const allowedEvents = allEvents.filter(event => 
-        activeForm.allowedCategories.includes(event.category)
-      );
-      
-      const eventsWithRounds = await Promise.all(
-        allowedEvents.map(async (event) => {
-          const rounds = await storage.getRoundsByEvent(event.id);
-          return {
-            id: event.id,
-            name: event.name,
-            description: event.description,
-            category: event.category,
-            rounds: rounds.map(r => ({
-              id: r.id,
-              name: r.name,
-              startTime: r.startTime,
-              endTime: r.endTime
-            }))
-          };
-        })
-      );
-      res.json(eventsWithRounds);
-    } catch (error) {
-      console.error("Get events for registration error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
