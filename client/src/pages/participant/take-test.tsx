@@ -1,6 +1,6 @@
 import { useParams, useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import ParticipantLayout from '@/components/layouts/ParticipantLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,15 +31,49 @@ export default function TakeTestPage() {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [violations, setViolations] = useState({ tabSwitch: 0, refresh: 0 });
   const [showViolationWarning, setShowViolationWarning] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+  
+  // Ref to track test status for event handlers
+  const testStatusRef = useRef<string>('in_progress');
 
   const { data: attempt, isLoading } = useQuery<TestAttemptWithDetails>({
     queryKey: ['/api/attempts', attemptId],
     enabled: !!attemptId,
   });
 
+  // Update ref when attempt status changes
+  useEffect(() => {
+    if (attempt?.status) {
+      testStatusRef.current = attempt.status;
+    }
+  }, [attempt?.status]);
+
   const { data: rules } = useQuery<EventRules>({
     queryKey: ['/api/events', attempt?.round?.eventId, 'rules'],
     enabled: !!attempt?.round?.eventId,
+  });
+
+  // Mutations defined early to avoid TDZ issues
+  const submitTestMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/attempts/${attemptId}/submit`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Test submitted',
+        description: 'Your test has been submitted successfully',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/attempts', attemptId] });
+      setLocation(`/participant/results/${attemptId}`);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Submission failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
   // Initialize answers from existing data
@@ -85,24 +119,48 @@ export default function TakeTestPage() {
     return () => clearInterval(timer);
   }, [timeRemaining, attempt]);
 
-  // Fullscreen enforcement
-  useEffect(() => {
-    if (!rules?.forceFullscreen) return;
-
-    const enterFullscreen = async () => {
+  // Handle fullscreen start
+  const handleBeginTest = async () => {
+    if (rules?.forceFullscreen) {
       try {
         await document.documentElement.requestFullscreen();
+        setHasStarted(true);
       } catch (err) {
         console.error('Failed to enter fullscreen:', err);
+        toast({
+          title: 'Fullscreen required',
+          description: 'Please allow fullscreen mode to start the test',
+          variant: 'destructive',
+        });
       }
-    };
+    } else {
+      setHasStarted(true);
+    }
+  };
 
-    enterFullscreen();
+  // Handle re-entering fullscreen
+  const handleReenterFullscreen = async () => {
+    try {
+      await document.documentElement.requestFullscreen();
+      setShowFullscreenModal(false);
+    } catch (err) {
+      console.error('Failed to re-enter fullscreen:', err);
+      toast({
+        title: 'Fullscreen required',
+        description: 'Please allow fullscreen mode to continue',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Fullscreen enforcement after test started
+  useEffect(() => {
+    if (!rules?.forceFullscreen || !hasStarted) return;
 
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && attempt?.status === 'in_progress') {
+      if (!document.fullscreenElement && testStatusRef.current === 'in_progress') {
         logViolation('fullscreen_exit');
-        enterFullscreen();
+        setShowFullscreenModal(true);
       }
     };
 
@@ -110,11 +168,17 @@ export default function TakeTestPage() {
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      if (document.fullscreenElement) {
+    };
+  }, [rules?.forceFullscreen, hasStarted, logViolation]);
+
+  // Cleanup fullscreen only on unmount
+  useEffect(() => {
+    return () => {
+      if (document.fullscreenElement && testStatusRef.current !== 'in_progress') {
         document.exitFullscreen().catch(console.error);
       }
     };
-  }, [rules, attempt]);
+  }, []);
 
   // Tab switch detection
   useEffect(() => {
@@ -174,47 +238,29 @@ export default function TakeTestPage() {
     apiRequest('POST', `/api/attempts/${attemptId}/violations`, { type }).catch(console.error);
 
     if (type === 'tab_switch') {
-      const newCount = violations.tabSwitch + 1;
-      setViolations(prev => ({ ...prev, tabSwitch: newCount }));
+      setViolations(prev => {
+        const newCount = prev.tabSwitch + 1;
+        
+        if (rules?.autoSubmitOnViolation && newCount >= (rules.maxTabSwitchWarnings || 2)) {
+          toast({
+            title: 'Maximum violations exceeded',
+            description: 'Your test will be auto-submitted',
+            variant: 'destructive',
+          });
+          setTimeout(() => submitTestMutation.mutate(), 2000);
+        } else {
+          setShowViolationWarning(true);
+          setTimeout(() => setShowViolationWarning(false), 3000);
+        }
 
-      if (rules?.autoSubmitOnViolation && newCount >= (rules.maxTabSwitchWarnings || 2)) {
-        toast({
-          title: 'Maximum violations exceeded',
-          description: 'Your test will be auto-submitted',
-          variant: 'destructive',
-        });
-        setTimeout(() => submitTestMutation.mutate(), 2000);
-      } else {
-        setShowViolationWarning(true);
-        setTimeout(() => setShowViolationWarning(false), 3000);
-      }
+        return { ...prev, tabSwitch: newCount };
+      });
     }
-  }, [attemptId, violations, rules]);
+  }, [attemptId, rules, submitTestMutation, toast]);
 
   const saveAnswerMutation = useMutation({
     mutationFn: async ({ questionId, answer }: { questionId: string; answer: string }) => {
       return apiRequest('POST', `/api/attempts/${attemptId}/answers`, { questionId, answer });
-    },
-  });
-
-  const submitTestMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('POST', `/api/attempts/${attemptId}/submit`, {});
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Test submitted',
-        description: 'Your test has been submitted successfully',
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/attempts', attemptId] });
-      setLocation(`/participant/results/${attemptId}`);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Submission failed',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
 
@@ -273,8 +319,100 @@ export default function TakeTestPage() {
   const currentQuestion = attempt.questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / attempt.questions.length) * 100;
 
+  // Show begin test screen
+  if (!hasStarted) {
+    return (
+      <ParticipantLayout>
+        <div className="p-8 max-w-3xl mx-auto">
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl">Ready to Start Test?</CardTitle>
+              <CardDescription className="text-base mt-2">
+                {attempt.round.name}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Important Instructions:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>You have {attempt.round.duration} minutes to complete this test</li>
+                    <li>Answer all {attempt.questions.length} questions</li>
+                    {rules?.forceFullscreen && <li>You must stay in fullscreen mode</li>}
+                    {rules?.noTabSwitch && <li>Do not switch tabs or windows</li>}
+                    {rules?.noRefresh && <li>Do not refresh the page</li>}
+                    {rules?.disableShortcuts && <li>Copy/paste/print shortcuts are disabled</li>}
+                    {rules?.autoSubmitOnViolation && (
+                      <li className="text-red-600 font-medium">
+                        Test will auto-submit after {rules.maxTabSwitchWarnings} violations
+                      </li>
+                    )}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              {rules?.additionalRules && (
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="font-medium mb-2">Additional Rules:</div>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {rules.additionalRules}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-center pt-4">
+                <Button
+                  onClick={handleBeginTest}
+                  size="lg"
+                  className="px-8"
+                  data-testid="button-begin-test"
+                >
+                  {rules?.forceFullscreen ? 'Begin Test in Fullscreen' : 'Begin Test'}
+                </Button>
+                <p className="text-sm text-gray-500 mt-3">
+                  Click the button above to start your test
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </ParticipantLayout>
+    );
+  }
+
   return (
     <ParticipantLayout>
+      {/* Fullscreen Violation Modal - Blocking */}
+      {showFullscreenModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <CardTitle className="text-xl">Fullscreen Required</CardTitle>
+              <CardDescription>
+                You must stay in fullscreen mode during the test
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600 text-center">
+                A violation has been logged. Click the button below to return to fullscreen mode and continue your test.
+              </p>
+              <Button
+                onClick={handleReenterFullscreen}
+                className="w-full"
+                size="lg"
+                data-testid="button-reenter-fullscreen"
+              >
+                Return to Fullscreen
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="p-8 max-w-5xl mx-auto">
         {/* Header with timer and progress */}
         <div className="mb-6 flex justify-between items-center">
