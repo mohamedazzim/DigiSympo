@@ -4,6 +4,7 @@ import { users, events, eventAdmins, eventRules, rounds, questions, participants
 import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport } from '@shared/schema';
 
 export interface IStorage {
+  getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -58,6 +59,10 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;

@@ -13,6 +13,17 @@ if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  app.get("/api/users", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const users = await storage.getUsers();
+      const usersWithoutPasswords = users.map(({ password, ...user }) => user);
+      res.json(usersWithoutPasswords);
+    } catch (error) {
+      console.error("Get users error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const { username, password, email, fullName, role } = req.body;

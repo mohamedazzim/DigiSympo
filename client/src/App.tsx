@@ -15,7 +15,9 @@ import EventAdminsPage from "@/pages/admin/event-admins";
 import EventAdminCreatePage from "@/pages/admin/event-admin-create";
 import ReportsPage from "@/pages/admin/reports";
 import EventAdminDashboard from "@/pages/event-admin/dashboard";
+import EventAdminEventsPage from "@/pages/event-admin/events";
 import ParticipantDashboard from "@/pages/participant/dashboard";
+import ParticipantEventsPage from "@/pages/participant/events";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -98,9 +100,15 @@ function Router() {
       <Route path="/event-admin/dashboard">
         <ProtectedRoute component={EventAdminDashboard} allowedRoles={['event_admin']} />
       </Route>
+      <Route path="/event-admin/events">
+        <ProtectedRoute component={EventAdminEventsPage} allowedRoles={['event_admin']} />
+      </Route>
 
       <Route path="/participant/dashboard">
         <ProtectedRoute component={ParticipantDashboard} allowedRoles={['participant']} />
+      </Route>
+      <Route path="/participant/events">
+        <ProtectedRoute component={ParticipantEventsPage} allowedRoles={['participant']} />
       </Route>
 
       <Route component={NotFound} />
