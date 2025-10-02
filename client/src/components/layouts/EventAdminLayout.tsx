@@ -19,6 +19,7 @@ interface EventAdminLayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/event-admin/dashboard', icon: LayoutDashboard },
   { name: 'My Events', href: '/event-admin/events', icon: Calendar },
+  { name: 'Participants', href: '/event-admin/participants', icon: Users },
 ];
 
 export default function EventAdminLayout({ children }: EventAdminLayoutProps) {

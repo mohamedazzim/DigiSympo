@@ -40,6 +40,7 @@ export interface IStorage {
   
   getParticipantsByEvent(eventId: string): Promise<Participant[]>;
   getParticipantsByUser(userId: string): Promise<Participant[]>;
+  getParticipantsByAdmin(adminId: string): Promise<any[]>;
   registerParticipant(participant: InsertParticipant): Promise<Participant>;
   
   getTestAttempt(id: string): Promise<TestAttempt | undefined>;
@@ -58,6 +59,9 @@ export interface IStorage {
   createReport(report: InsertReport): Promise<Report>;
   updateReport(id: string, report: Partial<InsertReport>): Promise<Report | undefined>;
   deleteReport(id: string): Promise<void>;
+  
+  generateEventReport(eventId: string, generatedBy: string): Promise<Report>;
+  generateSymposiumReport(generatedBy: string): Promise<Report>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -212,6 +216,27 @@ export class DatabaseStorage implements IStorage {
     return participant;
   }
 
+  async getParticipantsByAdmin(adminId: string) {
+    const result = await db
+      .select({
+        participant: participants,
+        user: users,
+        event: events
+      })
+      .from(participants)
+      .innerJoin(users, eq(participants.userId, users.id))
+      .innerJoin(events, eq(participants.eventId, events.id))
+      .innerJoin(eventAdmins, eq(events.id, eventAdmins.eventId))
+      .where(eq(eventAdmins.adminId, adminId))
+      .orderBy(desc(participants.registeredAt));
+
+    return result.map(r => ({
+      ...r.participant,
+      user: r.user,
+      event: r.event
+    }));
+  }
+
   async getTestAttempt(id: string): Promise<TestAttempt | undefined> {
     const [attempt] = await db.select().from(testAttempts).where(eq(testAttempts.id, id));
     return attempt;
@@ -276,6 +301,257 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReport(id: string): Promise<void> {
     await db.delete(reports).where(eq(reports.id, id));
+  }
+
+  async generateEventReport(eventId: string, generatedBy: string): Promise<Report> {
+    const event = await this.getEvent(eventId);
+    if (!event) {
+      throw new Error('Event not found');
+    }
+
+    const eventRoundsData = await db.select().from(rounds).where(eq(rounds.eventId, eventId));
+    const eventParticipants = await this.getParticipantsByEvent(eventId);
+    const eventRulesData = await this.getEventRules(eventId);
+
+    const roundsDetails = await Promise.all(
+      eventRoundsData.map(async (round) => {
+        const questionsData = await this.getQuestionsByRound(round.id);
+        const attemptsData = await db
+          .select({
+            attempt: testAttempts,
+            user: users
+          })
+          .from(testAttempts)
+          .innerJoin(users, eq(testAttempts.userId, users.id))
+          .where(eq(testAttempts.roundId, round.id));
+
+        const questionAnalysis = await Promise.all(
+          questionsData.map(async (question) => {
+            const answersData = await db
+              .select({
+                answer: answers,
+                attempt: testAttempts
+              })
+              .from(answers)
+              .innerJoin(testAttempts, eq(answers.attemptId, testAttempts.id))
+              .where(and(
+                eq(answers.questionId, question.id),
+                eq(testAttempts.roundId, round.id)
+              ));
+
+            const totalAnswers = answersData.length;
+            const correctAnswers = answersData.filter(a => a.answer.isCorrect).length;
+            const accuracy = totalAnswers > 0 ? (correctAnswers / totalAnswers) * 100 : 0;
+
+            return {
+              questionId: question.id,
+              questionText: question.questionText,
+              questionType: question.questionType,
+              points: question.points,
+              totalAnswers,
+              correctAnswers,
+              accuracy: Math.round(accuracy * 100) / 100
+            };
+          })
+        );
+
+        const completedAttempts = attemptsData.filter(a => a.attempt.status === 'completed');
+        const totalScore = completedAttempts.reduce((sum, a) => sum + (a.attempt.totalScore || 0), 0);
+        const avgScore = completedAttempts.length > 0 ? totalScore / completedAttempts.length : 0;
+
+        const violations = attemptsData.map(a => ({
+          userId: a.user.id,
+          userName: a.user.fullName,
+          tabSwitches: a.attempt.tabSwitchCount || 0,
+          refreshAttempts: a.attempt.refreshAttemptCount || 0,
+          violationLogs: a.attempt.violationLogs || []
+        }));
+
+        const leaderboard = await this.getRoundLeaderboard(round.id);
+
+        return {
+          roundId: round.id,
+          roundName: round.name,
+          roundNumber: round.roundNumber,
+          duration: round.duration,
+          status: round.status,
+          totalQuestions: questionsData.length,
+          totalAttempts: attemptsData.length,
+          completedAttempts: completedAttempts.length,
+          averageScore: Math.round(avgScore * 100) / 100,
+          questionAnalysis,
+          violations,
+          leaderboard: leaderboard.slice(0, 10)
+        };
+      })
+    );
+
+    const participantDetails = await Promise.all(
+      eventParticipants.map(async (participant) => {
+        const user = await this.getUser(participant.userId);
+        const attempts = await db
+          .select()
+          .from(testAttempts)
+          .innerJoin(rounds, eq(testAttempts.roundId, rounds.id))
+          .where(and(
+            eq(rounds.eventId, eventId),
+            eq(testAttempts.userId, participant.userId)
+          ));
+
+        const totalScore = attempts
+          .filter(a => a.test_attempts.status === 'completed')
+          .reduce((sum, a) => sum + (a.test_attempts.totalScore || 0), 0);
+
+        return {
+          userId: participant.userId,
+          userName: user?.fullName,
+          email: user?.email,
+          registeredAt: participant.registeredAt,
+          status: participant.status,
+          attemptsCount: attempts.length,
+          completedAttempts: attempts.filter(a => a.test_attempts.status === 'completed').length,
+          totalScore
+        };
+      })
+    );
+
+    const reportData = {
+      event: {
+        id: event.id,
+        name: event.name,
+        description: event.description,
+        type: event.type,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        status: event.status
+      },
+      rules: eventRulesData,
+      totalRounds: eventRoundsData.length,
+      totalParticipants: eventParticipants.length,
+      rounds: roundsDetails,
+      participants: participantDetails,
+      generatedAt: new Date().toISOString()
+    };
+
+    const report = await this.createReport({
+      eventId,
+      reportType: 'event_wise',
+      title: `${event.name} - Event Report`,
+      generatedBy,
+      reportData,
+      fileUrl: null
+    });
+
+    return report;
+  }
+
+  async generateSymposiumReport(generatedBy: string): Promise<Report> {
+    const allEvents = await this.getEvents();
+    const allUsers = await this.getUsers();
+
+    const eventSummaries = await Promise.all(
+      allEvents.map(async (event) => {
+        const eventRoundsData = await db.select().from(rounds).where(eq(rounds.eventId, event.id));
+        const eventParticipants = await this.getParticipantsByEvent(event.id);
+        
+        const roundIds = eventRoundsData.map(r => r.id);
+        let completedAttempts = 0;
+        let totalAttempts = 0;
+        let totalScore = 0;
+
+        if (roundIds.length > 0) {
+          const attemptsData = await db
+            .select()
+            .from(testAttempts)
+            .where(sql`${testAttempts.roundId} IN (${sql.join(roundIds.map(id => sql`${id}`), sql`, `)})`);
+
+          totalAttempts = attemptsData.length;
+          completedAttempts = attemptsData.filter(a => a.status === 'completed').length;
+          totalScore = attemptsData
+            .filter(a => a.status === 'completed')
+            .reduce((sum, a) => sum + (a.totalScore || 0), 0);
+        }
+
+        return {
+          eventId: event.id,
+          eventName: event.name,
+          eventType: event.type,
+          status: event.status,
+          totalRounds: eventRoundsData.length,
+          totalParticipants: eventParticipants.length,
+          totalAttempts,
+          completedAttempts,
+          completionRate: totalAttempts > 0 ? Math.round((completedAttempts / totalAttempts) * 100) : 0,
+          averageScore: completedAttempts > 0 ? Math.round((totalScore / completedAttempts) * 100) / 100 : 0
+        };
+      })
+    );
+
+    const allAttempts = await db
+      .select({
+        userId: testAttempts.userId,
+        userName: users.fullName,
+        totalScore: sql<number>`SUM(${testAttempts.totalScore})`.as('total_score'),
+        attemptsCount: sql<number>`COUNT(*)`.as('attempts_count')
+      })
+      .from(testAttempts)
+      .innerJoin(users, eq(testAttempts.userId, users.id))
+      .where(eq(testAttempts.status, 'completed'))
+      .groupBy(testAttempts.userId, users.fullName)
+      .orderBy(desc(sql`SUM(${testAttempts.totalScore})`))
+      .limit(50);
+
+    const participantCount = await db
+      .select({ userId: participants.userId })
+      .from(participants)
+      .groupBy(participants.userId);
+
+    const totalCompletedAttempts = await db
+      .select({ count: sql<number>`COUNT(*)`.as('count') })
+      .from(testAttempts)
+      .where(eq(testAttempts.status, 'completed'));
+
+    const totalViolations = await db
+      .select({
+        totalTabSwitches: sql<number>`SUM(${testAttempts.tabSwitchCount})`.as('total_tab_switches'),
+        totalRefreshes: sql<number>`SUM(${testAttempts.refreshAttemptCount})`.as('total_refreshes')
+      })
+      .from(testAttempts);
+
+    const reportData = {
+      overview: {
+        totalEvents: allEvents.length,
+        activeEvents: allEvents.filter(e => e.status === 'active').length,
+        completedEvents: allEvents.filter(e => e.status === 'completed').length,
+        totalParticipants: participantCount.length,
+        totalEventAdmins: allUsers.filter(u => u.role === 'event_admin').length,
+        totalCompletedAttempts: totalCompletedAttempts[0]?.count || 0,
+        totalViolations: {
+          tabSwitches: totalViolations[0]?.totalTabSwitches || 0,
+          refreshes: totalViolations[0]?.totalRefreshes || 0
+        }
+      },
+      eventSummaries,
+      topPerformers: allAttempts.slice(0, 20).map((performer, index) => ({
+        rank: index + 1,
+        userId: performer.userId,
+        userName: performer.userName,
+        totalScore: performer.totalScore,
+        attemptsCount: performer.attemptsCount
+      })),
+      generatedAt: new Date().toISOString()
+    };
+
+    const report = await this.createReport({
+      eventId: null,
+      reportType: 'symposium_wide',
+      title: 'Symposium-wide Report',
+      generatedBy,
+      reportData,
+      fileUrl: null
+    });
+
+    return report;
   }
 
   async getRoundLeaderboard(roundId: string) {

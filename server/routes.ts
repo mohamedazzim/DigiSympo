@@ -412,6 +412,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/event-admin/participants", requireAuth, requireEventAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const participants = await storage.getParticipantsByAdmin(req.user!.id);
+      res.json(participants);
+    } catch (error) {
+      console.error("Get admin participants error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Test Attempt Routes
   app.post("/api/events/:eventId/rounds/:roundId/start", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
     try {
@@ -663,6 +673,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(leaderboard);
     } catch (error) {
       console.error("Get event leaderboard error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/reports", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const reports = await storage.getReports();
+      res.json(reports);
+    } catch (error) {
+      console.error("Get reports error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/reports/generate/event", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { eventId } = req.body;
+      
+      if (!eventId) {
+        return res.status(400).json({ message: "Event ID is required" });
+      }
+
+      const report = await storage.generateEventReport(eventId, req.user!.id);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Generate event report error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Internal server error" });
+    }
+  });
+
+  app.post("/api/reports/generate/symposium", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const report = await storage.generateSymposiumReport(req.user!.id);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Generate symposium report error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/reports/:id/download", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const report = await storage.getReport(id);
+
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${report.title.replace(/[^a-z0-9]/gi, '_')}_${id}.json"`);
+      res.json(report.reportData);
+    } catch (error) {
+      console.error("Download report error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

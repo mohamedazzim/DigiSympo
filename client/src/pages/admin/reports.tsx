@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import AdminLayout from '@/components/layouts/AdminLayout';
@@ -5,15 +6,60 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Plus } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { FileText, Download, Plus, Loader2 } from 'lucide-react';
 import type { Report } from '@shared/schema';
 
 export default function ReportsPage() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const { data: reports, isLoading } = useQuery<Report[]>({
     queryKey: ['/api/reports'],
   });
+
+  const handleDownload = async (report: Report) => {
+    try {
+      setDownloadingId(report.id);
+
+      const response = await fetch(`/api/reports/${report.id}/download`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download report');
+      }
+
+      const data = await response.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${report.title.replace(/[^a-z0-9]/gi, '_')}_${report.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: 'Download Complete',
+        description: 'Report has been downloaded successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Download Failed',
+        description: error instanceof Error ? error.message : 'Failed to download report',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -74,11 +120,21 @@ export default function ReportsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={!report.fileUrl}
+                          onClick={() => handleDownload(report)}
+                          disabled={downloadingId === report.id}
                           data-testid={`button-download-${report.id}`}
                         >
-                          <Download className="mr-2 h-4 w-4" />
-                          Download
+                          {downloadingId === report.id ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Downloading...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="mr-2 h-4 w-4" />
+                              Download
+                            </>
+                          )}
                         </Button>
                       </TableCell>
                     </TableRow>
