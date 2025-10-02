@@ -89,6 +89,7 @@ export interface IStorage {
   getEventCredentialsByParticipant(participantUserId: string): Promise<EventCredential[]>;
   getEventCredentialsByEvent(eventId: string): Promise<Array<EventCredential & { participant: User, event: Event }>>;
   getEventCredential(credentialId: string): Promise<EventCredential | undefined>;
+  getEventCredentialByUserAndEvent(userId: string, eventId: string): Promise<EventCredential | undefined>;
   updateEventCredentialTestStatus(credentialId: string, testEnabled: boolean, enabledBy: string): Promise<EventCredential>;
   getEventCredentialsWithParticipants(eventId: string): Promise<Array<EventCredential & { participant: User }>>;
   isUserEventAdmin(userId: string, eventId: string): Promise<boolean>;
@@ -829,6 +830,13 @@ export class DatabaseStorage implements IStorage {
     const [credential] = await db.select()
       .from(eventCredentials)
       .where(eq(eventCredentials.id, credentialId));
+    return credential;
+  }
+
+  async getEventCredentialByUserAndEvent(userId: string, eventId: string): Promise<EventCredential | undefined> {
+    const [credential] = await db.select()
+      .from(eventCredentials)
+      .where(and(eq(eventCredentials.participantUserId, userId), eq(eventCredentials.eventId, eventId)));
     return credential;
   }
 

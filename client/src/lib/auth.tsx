@@ -7,6 +7,7 @@ interface User {
   email: string;
   fullName: string;
   role: string;
+  eventId?: string;
 }
 
 interface AuthContextType {

@@ -193,8 +193,11 @@ function Router() {
       <Route path="/participant/dashboard">
         <ProtectedRoute component={ParticipantDashboard} allowedRoles={['participant']} />
       </Route>
+      <Route path="/participant/rounds/:roundId/test">
+        <Redirect to="/participant/dashboard" />
+      </Route>
       <Route path="/participant/events/:eventId">
-        <ProtectedRoute component={ParticipantEventDetailsPage} allowedRoles={['participant']} />
+        <ProtectedRoute component={ParticipantEventsPage} allowedRoles={['participant']} />
       </Route>
       <Route path="/participant/events">
         <ProtectedRoute component={ParticipantEventsPage} allowedRoles={['participant']} />
@@ -203,16 +206,16 @@ function Router() {
         <ProtectedRoute component={TakeTestPage} allowedRoles={['participant']} />
       </Route>
       <Route path="/participant/results/:attemptId">
-        <ProtectedRoute component={TestResultsPage} allowedRoles={['participant']} />
+        <Redirect to="/participant/dashboard" />
       </Route>
       <Route path="/participant/my-tests">
         <ProtectedRoute component={MyTestsPage} allowedRoles={['participant']} />
       </Route>
       <Route path="/participant/rounds/:roundId/leaderboard">
-        <ProtectedRoute component={LeaderboardPage} allowedRoles={['participant']} />
+        <Redirect to="/participant/dashboard" />
       </Route>
       <Route path="/participant/events/:eventId/leaderboard">
-        <ProtectedRoute component={LeaderboardPage} allowedRoles={['participant']} />
+        <Redirect to="/participant/dashboard" />
       </Route>
 
       <Route component={NotFound} />

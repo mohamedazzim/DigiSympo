@@ -11,6 +11,7 @@ export interface AuthRequest extends Request {
     email: string;
     fullName: string;
     role: string;
+    eventId?: string;
   };
 }
 
@@ -22,7 +23,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string; role: string; eventId?: string };
     const user = await storage.getUser(decoded.id);
     
     if (!user) {
@@ -34,7 +35,8 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
       username: user.username,
       email: user.email,
       fullName: user.fullName,
-      role: user.role
+      role: user.role,
+      eventId: decoded.eventId
     };
 
     next();

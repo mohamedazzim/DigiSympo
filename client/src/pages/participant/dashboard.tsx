@@ -1,144 +1,209 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
-import { useAuth } from '@/lib/auth';
 import ParticipantLayout from '@/components/layouts/ParticipantLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Calendar, Clock, Trophy, Users } from 'lucide-react';
-import type { Event, Participant } from '@shared/schema';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ParticipantDashboard() {
-  const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const [agreed, setAgreed] = useState(false);
+  const { toast } = useToast();
 
-  const { data: events } = useQuery<Event[]>({
-    queryKey: ['/api/events'],
+  const { data: credentialData, isLoading } = useQuery({
+    queryKey: ['/api/participants/my-credential'],
   });
 
-  const { data: registrations } = useQuery<Participant[]>({
-    queryKey: ['/api/participants/my-registrations'],
+  if (isLoading) {
+    return (
+      <ParticipantLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-600" data-testid="loading-message">Loading...</p>
+          </div>
+        </div>
+      </ParticipantLayout>
+    );
+  }
+
+  const { credential, event, eventRules, rounds } = credentialData || {};
+  const testEnabled = credential?.testEnabled || false;
+  const activeRounds = rounds?.filter((r: any) => r.status === 'active') || [];
+  const hasActiveRounds = activeRounds.length > 0;
+
+  const allRules = [];
+  if (eventRules?.additionalRules) {
+    allRules.push(eventRules.additionalRules);
+  }
+
+  rounds?.forEach((round: any) => {
+    if (round.rules?.additionalRules) {
+      allRules.push(`${round.name}: ${round.rules.additionalRules}`);
+    }
   });
 
-  const activeEvents = events?.filter(e => e.status === 'active') || [];
-  const myEventsCount = registrations?.length || 0;
+  const proctoringRules = [];
+  if (eventRules?.noRefresh) proctoringRules.push('No page refresh allowed');
+  if (eventRules?.noTabSwitch) proctoringRules.push('No tab switching allowed');
+  if (eventRules?.forceFullscreen) proctoringRules.push('Fullscreen mode required');
+  if (eventRules?.disableShortcuts) proctoringRules.push('Keyboard shortcuts disabled');
+  if (eventRules?.autoSubmitOnViolation) proctoringRules.push('Auto-submit on violation');
+
+  const canBeginTest = testEnabled && agreed && hasActiveRounds;
+
+  const startTestMutation = useMutation({
+    mutationFn: async (roundId: string) => {
+      return apiRequest('POST', `/api/events/${event?.id}/rounds/${roundId}/start`, {});
+    },
+    onSuccess: (attempt: any) => {
+      setLocation(`/participant/test/${attempt.id}`);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to start test',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleBeginTest = () => {
+    if (canBeginTest && activeRounds[0]) {
+      startTestMutation.mutate(activeRounds[0].id);
+    }
+  };
 
   return (
     <ParticipantLayout>
-      <div className="p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Welcome back, {user?.fullName}</p>
+      <div className="max-w-4xl mx-auto p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2" data-testid="heading-dashboard">
+            {event?.name || 'Event Dashboard'}
+          </h1>
+          <p className="text-gray-600" data-testid="text-event-description">
+            {event?.description}
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/participant/events')} data-testid="card-available-events">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Available Events</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-events-count">{activeEvents.length}</div>
-              <p className="text-xs text-muted-foreground">Events you can join</p>
-            </CardContent>
-          </Card>
+        {!testEnabled && (
+          <Alert className="mb-6" data-testid="alert-test-not-enabled">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Waiting for admin to enable the test. Please check back later.
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/participant/my-tests')} data-testid="card-my-events">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">My Events</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-registered-count">{myEventsCount}</div>
-              <p className="text-xs text-muted-foreground">Registered events</p>
-            </CardContent>
-          </Card>
+        {!hasActiveRounds && testEnabled && (
+          <Alert className="mb-6" data-testid="alert-no-active-rounds">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              No active rounds available at the moment. Please wait for the admin to activate a round.
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/participant/results')} data-testid="card-results">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">My Results</CardTitle>
-              <Trophy className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">View</div>
-              <p className="text-xs text-muted-foreground">Check your performance</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Events</CardTitle>
-              <CardDescription>Events available for registration</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {activeEvents.length === 0 ? (
-                <p className="text-sm text-gray-600 text-center py-4" data-testid="no-events">
-                  No active events available at the moment
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {activeEvents.slice(0, 3).map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setLocation(`/participant/events/${event.id}`)}
-                      data-testid={`event-card-${event.id}`}
-                    >
-                      <div>
-                        <p className="font-medium">{event.name}</p>
-                        <p className="text-xs text-gray-600 capitalize">{event.type}</p>
-                      </div>
-                      <Button size="sm" variant="outline">
-                        View
-                      </Button>
-                    </div>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle data-testid="heading-rules">Rules & Regulations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {proctoringRules.length > 0 && (
+              <div className="mb-4">
+                <h3 className="font-semibold text-sm text-gray-700 mb-2">Proctoring Rules:</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                  {proctoringRules.map((rule, idx) => (
+                    <li key={idx} data-testid={`proctoring-rule-${idx}`}>{rule}</li>
                   ))}
-                  {activeEvents.length > 3 && (
-                    <Button
-                      variant="ghost"
-                      className="w-full"
-                      onClick={() => setLocation('/participant/events')}
-                      data-testid="button-view-all"
-                    >
-                      View All Events
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </ul>
+              </div>
+            )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <button
-                onClick={() => setLocation('/participant/events')}
-                className="w-full text-left p-3 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-3"
-                data-testid="button-browse-events"
+            {allRules.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-sm text-gray-700 mb-2">Additional Rules:</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                  {allRules.map((rule, idx) => (
+                    <li key={idx} data-testid={`additional-rule-${idx}`}>{rule}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {proctoringRules.length === 0 && allRules.length === 0 && (
+              <p className="text-sm text-gray-500" data-testid="no-rules-message">
+                No specific rules have been set for this event.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3 mb-4">
+              <Checkbox
+                id="agree"
+                checked={agreed}
+                onCheckedChange={(checked) => setAgreed(checked as boolean)}
+                data-testid="checkbox-agree"
+              />
+              <label
+                htmlFor="agree"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                data-testid="label-agree"
               >
-                <Calendar className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="font-medium">Browse Events</p>
-                  <p className="text-xs text-gray-600">Find events to participate in</p>
-                </div>
-              </button>
-              <button
-                onClick={() => setLocation('/participant/results')}
-                className="w-full text-left p-3 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-3"
-                data-testid="button-view-results"
-              >
-                <Trophy className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="font-medium">View Results</p>
-                  <p className="text-xs text-gray-600">Check your scores and rankings</p>
-                </div>
-              </button>
-            </CardContent>
-          </Card>
-        </div>
+                I agree to the rules and regulations
+              </label>
+            </div>
+
+            <Button
+              className="w-full"
+              size="lg"
+              disabled={!canBeginTest || startTestMutation.isPending}
+              onClick={handleBeginTest}
+              data-testid="button-begin-test"
+            >
+              {startTestMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Starting Test...
+                </>
+              ) : !testEnabled ? (
+                <>
+                  <AlertCircle className="mr-2 h-5 w-5" />
+                  Test Not Enabled
+                </>
+              ) : !agreed ? (
+                <>
+                  <AlertCircle className="mr-2 h-5 w-5" />
+                  Please Accept Rules
+                </>
+              ) : !hasActiveRounds ? (
+                <>
+                  <AlertCircle className="mr-2 h-5 w-5" />
+                  No Active Rounds
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-5 w-5" />
+                  Begin Test
+                </>
+              )}
+            </Button>
+
+            {testEnabled && hasActiveRounds && (
+              <p className="text-xs text-gray-500 text-center mt-3" data-testid="text-active-round-info">
+                Active Round: {activeRounds[0].name} ({activeRounds[0].duration} minutes)
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </ParticipantLayout>
   );

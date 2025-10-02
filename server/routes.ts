@@ -221,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role },
+        { id: user.id, username: user.username, role: user.role, eventId: eventCredential.eventId },
         JWT_SECRET,
         { expiresIn: "7d" }
       );
@@ -233,7 +233,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           username: user.username,
           email: user.email,
           fullName: user.fullName,
-          role: user.role
+          role: user.role,
+          eventId: eventCredential.eventId
         },
         token
       });
@@ -245,6 +246,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/me", requireAuth, async (req: AuthRequest, res: Response) => {
     res.json(req.user);
+  });
+
+  app.get("/api/participants/my-credential", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      
+      if (!user.eventId) {
+        return res.status(400).json({ message: 'No event associated with this session' });
+      }
+
+      const credential = await storage.getEventCredentialByUserAndEvent(user.id, user.eventId);
+      if (!credential) {
+        return res.status(404).json({ message: 'Event credential not found' });
+      }
+
+      const event = await storage.getEvent(user.eventId);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      const rounds = await storage.getRoundsByEvent(user.eventId);
+      const eventRules = await storage.getEventRules(user.eventId);
+      
+      const roundsWithRules = await Promise.all(rounds.map(async (round) => {
+        const roundRules = await storage.getRoundRules(round.id);
+        return { ...round, rules: roundRules };
+      }));
+
+      res.json({
+        credential: {
+          id: credential.id,
+          testEnabled: credential.testEnabled,
+          enabledAt: credential.enabledAt,
+        },
+        event: {
+          id: event.id,
+          name: event.name,
+          description: event.description,
+          type: event.type,
+          category: event.category,
+          status: event.status,
+        },
+        eventRules,
+        rounds: roundsWithRules,
+        participant: {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+        }
+      });
+    } catch (error) {
+      console.error("Get participant credential error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   });
 
   app.get("/api/events", requireAuth, async (req: AuthRequest, res: Response) => {
