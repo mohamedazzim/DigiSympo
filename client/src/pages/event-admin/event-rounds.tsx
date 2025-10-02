@@ -1,16 +1,19 @@
 import { useParams, useLocation } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import EventAdminLayout from '@/components/layouts/EventAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, Edit, FileQuestion, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, Edit, FileQuestion, Clock, Play, Square } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { Round, Event } from '@shared/schema';
 
 export default function EventRoundsPage() {
   const { eventId } = useParams();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
     queryKey: ['/api/events', eventId],
@@ -20,6 +23,50 @@ export default function EventRoundsPage() {
   const { data: rounds, isLoading: roundsLoading } = useQuery<Round[]>({
     queryKey: ['/api/events', eventId, 'rounds'],
     enabled: !!eventId,
+  });
+
+  const startRoundMutation = useMutation({
+    mutationFn: async (roundId: string) => {
+      return apiRequest('PATCH', `/api/rounds/${roundId}`, {
+        status: 'active'
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Round Started',
+        description: 'Participants can now begin the test',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', eventId, 'rounds'] });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to start round',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const endRoundMutation = useMutation({
+    mutationFn: async (roundId: string) => {
+      return apiRequest('PATCH', `/api/rounds/${roundId}`, {
+        status: 'completed'
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Round Ended',
+        description: 'Round has been marked as completed',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', eventId, 'rounds'] });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to end round',
+        variant: 'destructive',
+      });
+    }
   });
 
   const getStatusBadge = (status: string) => {
@@ -123,6 +170,32 @@ export default function EventRoundsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {round.status === 'upcoming' && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => startRoundMutation.mutate(round.id)}
+                              disabled={startRoundMutation.isPending}
+                              data-testid={`button-start-${round.id}`}
+                              title="Start Round"
+                            >
+                              <Play className="h-4 w-4 mr-1" />
+                              Start
+                            </Button>
+                          )}
+                          {round.status === 'active' && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => endRoundMutation.mutate(round.id)}
+                              disabled={endRoundMutation.isPending}
+                              data-testid={`button-end-${round.id}`}
+                              title="End Round"
+                            >
+                              <Square className="h-4 w-4 mr-1" />
+                              End
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
