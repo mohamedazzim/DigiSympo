@@ -25,6 +25,9 @@ import EventParticipantsPage from "@/pages/event-admin/event-participants";
 import ParticipantDashboard from "@/pages/participant/dashboard";
 import ParticipantEventsPage from "@/pages/participant/events";
 import ParticipantEventDetailsPage from "@/pages/participant/event-details";
+import TakeTestPage from "@/pages/participant/take-test";
+import TestResultsPage from "@/pages/participant/test-results";
+import MyTestsPage from "@/pages/participant/my-tests";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -137,6 +140,15 @@ function Router() {
       </Route>
       <Route path="/participant/events">
         <ProtectedRoute component={ParticipantEventsPage} allowedRoles={['participant']} />
+      </Route>
+      <Route path="/participant/test/:attemptId">
+        <ProtectedRoute component={TakeTestPage} allowedRoles={['participant']} />
+      </Route>
+      <Route path="/participant/results/:attemptId">
+        <ProtectedRoute component={TestResultsPage} allowedRoles={['participant']} />
+      </Route>
+      <Route path="/participant/my-tests">
+        <ProtectedRoute component={MyTestsPage} allowedRoles={['participant']} />
       </Route>
 
       <Route component={NotFound} />

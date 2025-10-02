@@ -134,24 +134,58 @@ export default function ParticipantEventDetailsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {rounds.map((round) => (
-                      <div
-                        key={round.id}
-                        className="flex justify-between items-center p-4 border rounded-lg"
-                        data-testid={`card-round-${round.id}`}
-                      >
-                        <div>
-                          <div className="font-medium">Round {round.roundNumber}: {round.name}</div>
-                          {round.description && (
-                            <div className="text-sm text-gray-600 mt-1">{round.description}</div>
-                          )}
+                    {rounds.map((round) => {
+                      const startTestMutation = useMutation({
+                        mutationFn: async () => {
+                          return apiRequest('POST', `/api/events/${eventId}/rounds/${round.id}/start`, {});
+                        },
+                        onSuccess: (data: any) => {
+                          toast({
+                            title: 'Test started',
+                            description: 'You can now take the test',
+                          });
+                          setLocation(`/participant/test/${data.id}`);
+                        },
+                        onError: (error: any) => {
+                          toast({
+                            title: 'Failed to start test',
+                            description: error.message,
+                            variant: 'destructive',
+                          });
+                        },
+                      });
+
+                      return (
+                        <div
+                          key={round.id}
+                          className="flex justify-between items-center p-4 border rounded-lg"
+                          data-testid={`card-round-${round.id}`}
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium">Round {round.roundNumber}: {round.name}</div>
+                            {round.description && (
+                              <div className="text-sm text-gray-600 mt-1">{round.description}</div>
+                            )}
+                            <div className="flex items-center gap-4 mt-2">
+                              <div>
+                                <div className="text-xs text-gray-500">Duration</div>
+                                <div className="text-sm font-medium">{round.duration} mins</div>
+                              </div>
+                              <Badge variant="outline">{round.status}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 ml-4">
+                            <Button
+                              onClick={() => startTestMutation.mutate()}
+                              disabled={startTestMutation.isPending || round.status !== 'active'}
+                              data-testid={`button-start-test-${round.id}`}
+                            >
+                              {startTestMutation.isPending ? 'Starting...' : 'Start Test'}
+                            </Button>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm text-gray-500">Duration</div>
-                          <div className="font-medium">{round.duration} mins</div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

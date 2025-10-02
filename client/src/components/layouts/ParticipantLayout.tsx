@@ -6,7 +6,8 @@ import {
   Calendar, 
   Trophy,
   LayoutDashboard,
-  LogOut
+  LogOut,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +18,7 @@ interface ParticipantLayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/participant/dashboard', icon: LayoutDashboard },
   { name: 'Events', href: '/participant/events', icon: Calendar },
+  { name: 'My Tests', href: '/participant/my-tests', icon: FileText },
 ];
 
 export default function ParticipantLayout({ children }: ParticipantLayoutProps) {
