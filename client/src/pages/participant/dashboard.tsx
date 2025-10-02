@@ -15,8 +15,29 @@ export default function ParticipantDashboard() {
   const [agreed, setAgreed] = useState(false);
   const { toast } = useToast();
 
-  const { data: credentialData, isLoading } = useQuery({
+  const { data: credentialData, isLoading } = useQuery<any>({
     queryKey: ['/api/participants/my-credential'],
+  });
+
+  const { credential, event, eventRules, rounds } = credentialData || {};
+  const testEnabled = credential?.testEnabled || false;
+  const activeRounds = rounds?.filter((r: any) => r.status === 'active') || [];
+  const hasActiveRounds = activeRounds.length > 0;
+
+  const startTestMutation = useMutation({
+    mutationFn: async (roundId: string) => {
+      return apiRequest('POST', `/api/events/${event?.id}/rounds/${roundId}/start`, {});
+    },
+    onSuccess: (attempt: any) => {
+      setLocation(`/participant/test/${attempt.id}`);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to start test',
+        variant: 'destructive',
+      });
+    },
   });
 
   if (isLoading) {
@@ -31,11 +52,6 @@ export default function ParticipantDashboard() {
       </ParticipantLayout>
     );
   }
-
-  const { credential, event, eventRules, rounds } = credentialData || {};
-  const testEnabled = credential?.testEnabled || false;
-  const activeRounds = rounds?.filter((r: any) => r.status === 'active') || [];
-  const hasActiveRounds = activeRounds.length > 0;
 
   const allRules = [];
   if (eventRules?.additionalRules) {
@@ -56,22 +72,6 @@ export default function ParticipantDashboard() {
   if (eventRules?.autoSubmitOnViolation) proctoringRules.push('Auto-submit on violation');
 
   const canBeginTest = testEnabled && agreed && hasActiveRounds;
-
-  const startTestMutation = useMutation({
-    mutationFn: async (roundId: string) => {
-      return apiRequest('POST', `/api/events/${event?.id}/rounds/${roundId}/start`, {});
-    },
-    onSuccess: (attempt: any) => {
-      setLocation(`/participant/test/${attempt.id}`);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to start test',
-        variant: 'destructive',
-      });
-    },
-  });
 
   const handleBeginTest = () => {
     if (canBeginTest && activeRounds[0]) {
