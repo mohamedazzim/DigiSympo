@@ -11,7 +11,7 @@ interface ParticipantLayoutProps {
 export default function ParticipantLayout({ children }: ParticipantLayoutProps) {
   const { user, logout } = useAuth();
 
-  const { data: credentialData } = useQuery({
+  const { data: credentialData } = useQuery<any>({
     queryKey: ['/api/participants/my-credential'],
     enabled: user?.role === 'participant',
   });
@@ -25,7 +25,7 @@ export default function ParticipantLayout({ children }: ParticipantLayoutProps) 
         <div className="px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold text-gray-900" data-testid="heading-symposium">
-              Symposium Management
+              BootFeet 2K26
             </h1>
             <span className="text-gray-400">|</span>
             <span className="text-sm text-gray-700" data-testid="text-event-name">

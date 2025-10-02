@@ -60,6 +60,15 @@ A comprehensive React-based web application for managing symposium events with p
 - **Timer Auto-Submit**: Automatic submission when time expires
 - **Round-Specific Rules**: Configure proctoring rules per round (overrides event-level rules)
 
+### Event Rules & Regulations
+- ⚠️ **Do not switch tabs** during the event — doing so will lead to disqualification
+- 🔒 **Do not exit fullscreen mode** at any point
+- 🚫 **Do not use any keyboard shortcuts** — they are strictly prohibited
+- ✅ **Each correct answer earns +1 mark**
+- ℹ️ **No negative marks** for incorrect answers
+- 📊 **Results will be displayed after the event concludes** — wait for the event to end to view your final score and correct answers
+- 🎯 **All the best!**
+
 ### Event Management
 - **Create and manage symposium events with categories**
 - **Duplicate event name validation**
