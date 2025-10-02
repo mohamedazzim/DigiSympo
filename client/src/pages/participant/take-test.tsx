@@ -101,7 +101,9 @@ export default function TakeTestPage() {
 
   // Timer countdown
   useEffect(() => {
-    if (timeRemaining <= 0 && attempt && attempt.status === 'in_progress') {
+    if (!attempt || !hasStarted) return;
+
+    if (timeRemaining <= 0 && attempt.status === 'in_progress') {
       submitTestMutation.mutate();
       return;
     }
@@ -117,7 +119,7 @@ export default function TakeTestPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeRemaining, attempt]);
+  }, [timeRemaining, attempt, hasStarted, submitTestMutation]);
 
   // Handle fullscreen start
   const handleBeginTest = async () => {
