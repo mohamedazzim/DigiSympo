@@ -1,10 +1,12 @@
 import { useParams, useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import EventAdminLayout from '@/components/layouts/EventAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +14,18 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { ArrowLeft, Shield, AlertTriangle } from 'lucide-react';
 import type { EventRules, Event } from '@shared/schema';
+
+const rulesFormSchema = z.object({
+  noRefresh: z.boolean(),
+  noTabSwitch: z.boolean(),
+  forceFullscreen: z.boolean(),
+  disableShortcuts: z.boolean(),
+  autoSubmitOnViolation: z.boolean(),
+  maxTabSwitchWarnings: z.number().min(0).max(10),
+  additionalRules: z.string().optional(),
+});
+
+type RulesFormData = z.infer<typeof rulesFormSchema>;
 
 export default function EventRulesPage() {
   const { eventId } = useParams();
@@ -28,7 +42,8 @@ export default function EventRulesPage() {
     enabled: !!eventId,
   });
 
-  const form = useForm({
+  const form = useForm<RulesFormData>({
+    resolver: zodResolver(rulesFormSchema),
     defaultValues: {
       noRefresh: true,
       noTabSwitch: true,
@@ -50,7 +65,7 @@ export default function EventRulesPage() {
   });
 
   const updateRulesMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: RulesFormData) => {
       return apiRequest('PATCH', `/api/events/${eventId}/rules`, data);
     },
     onSuccess: () => {
@@ -69,7 +84,7 @@ export default function EventRulesPage() {
     },
   });
 
-  async function onSubmit(data: any) {
+  async function onSubmit(data: RulesFormData) {
     updateRulesMutation.mutate(data);
   }
 
@@ -270,6 +285,7 @@ export default function EventRulesPage() {
                             data-testid="input-max-warnings"
                           />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -291,6 +307,7 @@ export default function EventRulesPage() {
                             data-testid="input-additional-rules"
                           />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
