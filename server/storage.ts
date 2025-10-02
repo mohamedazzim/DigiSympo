@@ -754,13 +754,72 @@ export class DatabaseStorage implements IStorage {
     return registration;
   }
 
-  async getRegistrations(): Promise<Registration[]> {
-    return await db.select().from(registrations).orderBy(desc(registrations.submittedAt));
+  async getRegistrations(): Promise<any[]> {
+    const result = await db.select({
+      registration: registrations,
+      form: registrationForms
+    })
+    .from(registrations)
+    .leftJoin(registrationForms, eq(registrations.formId, registrationForms.id))
+    .orderBy(desc(registrations.submittedAt));
+    
+    return result.map(r => {
+      const participantDetails = this.extractParticipantDetails(r.registration.submittedData, r.form?.formFields || []);
+      return {
+        ...r.registration,
+        participantName: participantDetails.name,
+        participantEmail: participantDetails.email,
+        participantPhone: participantDetails.phone,
+        form: r.form
+      };
+    });
   }
 
-  async getRegistration(id: string): Promise<Registration | undefined> {
-    const [registration] = await db.select().from(registrations).where(eq(registrations.id, id));
-    return registration;
+  async getRegistration(id: string): Promise<any | undefined> {
+    const result = await db.select({
+      registration: registrations,
+      form: registrationForms
+    })
+    .from(registrations)
+    .leftJoin(registrationForms, eq(registrations.formId, registrationForms.id))
+    .where(eq(registrations.id, id));
+    
+    if (result.length === 0) return undefined;
+    
+    const r = result[0];
+    const participantDetails = this.extractParticipantDetails(r.registration.submittedData, r.form?.formFields || []);
+    return {
+      ...r.registration,
+      participantName: participantDetails.name,
+      participantEmail: participantDetails.email,
+      participantPhone: participantDetails.phone,
+      form: r.form
+    };
+  }
+  
+  private extractParticipantDetails(submittedData: Record<string, string>, formFields: Array<{id: string, label: string, type: string, required: boolean, placeholder?: string}>): { name: string; email: string; phone: string } {
+    let name = 'N/A';
+    let email = 'N/A';
+    let phone = 'N/A';
+    
+    for (const field of formFields) {
+      const value = submittedData[field.id];
+      if (!value) continue;
+      
+      const lowerLabel = field.label.toLowerCase();
+      
+      if (field.type === 'email' || lowerLabel.includes('email')) {
+        email = value;
+      } else if (field.type === 'tel' || lowerLabel.includes('phone') || lowerLabel.includes('mobile') || lowerLabel.includes('contact')) {
+        phone = value;
+      } else if (lowerLabel.includes('name') && !lowerLabel.includes('college') && !lowerLabel.includes('school') && !lowerLabel.includes('institution')) {
+        if (name === 'N/A' || lowerLabel.includes('full')) {
+          name = value;
+        }
+      }
+    }
+    
+    return { name, email, phone };
   }
 
   async updateRegistrationStatus(id: string, status: 'pending' | 'paid' | 'declined', participantUserId: string | null, processedBy: string): Promise<Registration> {

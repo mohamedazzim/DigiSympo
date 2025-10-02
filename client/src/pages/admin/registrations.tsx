@@ -60,18 +60,18 @@ export default function AdminRegistrationsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {registrations.map((registration) => (
+                  {registrations.map((registration: any) => (
                     <TableRow key={registration.id} data-testid={`row-registration-${registration.id}`}>
                       <TableCell data-testid={`text-name-${registration.id}`}>
-                        {registration.submittedData.fullName || registration.submittedData['Full Name'] || 'N/A'}
+                        {registration.participantName || 'N/A'}
                       </TableCell>
                       <TableCell data-testid={`text-email-${registration.id}`}>
-                        {registration.submittedData.email || registration.submittedData['Email'] || 'N/A'}
+                        {registration.participantEmail || 'N/A'}
                       </TableCell>
                       <TableCell data-testid={`text-events-${registration.id}`}>
                         <div className="flex flex-wrap gap-1">
                           {registration.selectedEvents && registration.selectedEvents.length > 0 ? (
-                            registration.selectedEvents.map((eventId) => (
+                            registration.selectedEvents.map((eventId: string) => (
                               <Badge key={eventId} variant="outline" className="text-xs">
                                 {getEventName(eventId)}
                               </Badge>

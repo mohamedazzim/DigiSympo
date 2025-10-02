@@ -8,6 +8,25 @@ The Symposium Management System is a React-based web application for managing sy
 - Real-time leaderboards and reporting
 
 ## Recent Changes
+**October 2, 2025** - Participant Details Display Fix & Login Enhancement
+- **FIXED: Participant Details Now Display Correctly** ✅
+  - Enhanced backend storage layer to join registrations with registration forms
+  - Created intelligent extraction logic to parse participant details from dynamic form data
+  - Added enriched fields: `participantName`, `participantEmail`, `participantPhone`
+  - Updated Super Admin registrations page to use enriched data
+  - Updated Registration Committee registrations page to use enriched data
+  - All dashboards now show consistent participant information
+- **FIXED: Universal Login Support** ✅
+  - Updated login endpoint to support BOTH event credentials AND admin accounts
+  - Event credential login: First checks for participant credentials with event-specific login
+  - Admin login: Falls back to regular user authentication with bcrypt password verification
+  - All user roles now login successfully: Super Admin, Event Admin, Registration Committee, Participants
+- **Working Credentials:**
+  - Super Admin: `superadmin` / `Admin123!`
+  - Registration Committee: `azzi` / `123123`
+  - Event Admin: `azzim` / `admin123`
+  - Participant: `coding-mohamed-Tgfn` / `a2orMtoNnV3Fj+nF`
+
 **October 2, 2025** - Feature Enhancements: Validation, Round Rules & Bulk Upload
 - **NEW: Event Name Validation** ✅
   - Prevents duplicate event names in the system
