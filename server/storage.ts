@@ -1,7 +1,7 @@
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { db } from './db';
-import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports } from '@shared/schema';
-import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport } from '@shared/schema';
+import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports, registrationForms, registrations } from '@shared/schema';
+import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport, RegistrationForm, InsertRegistrationForm, Registration, InsertRegistration } from '@shared/schema';
 
 export interface IStorage {
   getUsers(): Promise<User[]>;
@@ -70,6 +70,17 @@ export interface IStorage {
   
   generateEventReport(eventId: string, generatedBy: string): Promise<Report>;
   generateSymposiumReport(generatedBy: string): Promise<Report>;
+  
+  createRegistrationForm(eventId: string, formSlug: string, formFields: any[]): Promise<RegistrationForm>;
+  getRegistrationFormsByEvent(eventId: string): Promise<RegistrationForm[]>;
+  getRegistrationFormBySlug(slug: string): Promise<RegistrationForm | undefined>;
+  getAllRegistrationForms(): Promise<RegistrationForm[]>;
+  
+  createRegistration(formId: string, eventId: string, data: Record<string, string>): Promise<Registration>;
+  getRegistrations(): Promise<Registration[]>;
+  getRegistrationsByEvent(eventId: string): Promise<Registration[]>;
+  getRegistration(id: string): Promise<Registration | undefined>;
+  updateRegistrationStatus(id: string, status: 'pending' | 'paid' | 'declined', participantUserId: string | null, processedBy: string): Promise<Registration>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -679,6 +690,59 @@ export class DatabaseStorage implements IStorage {
       ...attempt,
       rank: index + 1
     }));
+  }
+
+  async createRegistrationForm(eventId: string, formSlug: string, formFields: any[]): Promise<RegistrationForm> {
+    const [form] = await db.insert(registrationForms).values({ eventId, formSlug, formFields }).returning();
+    return form;
+  }
+
+  async getRegistrationFormsByEvent(eventId: string): Promise<RegistrationForm[]> {
+    return await db.select().from(registrationForms).where(eq(registrationForms.eventId, eventId));
+  }
+
+  async getRegistrationFormBySlug(slug: string): Promise<RegistrationForm | undefined> {
+    const [form] = await db.select().from(registrationForms).where(eq(registrationForms.formSlug, slug));
+    return form;
+  }
+
+  async getAllRegistrationForms(): Promise<RegistrationForm[]> {
+    return await db.select().from(registrationForms).orderBy(desc(registrationForms.createdAt));
+  }
+
+  async createRegistration(formId: string, eventId: string, data: Record<string, string>): Promise<Registration> {
+    const [registration] = await db.insert(registrations).values({
+      formId,
+      eventId,
+      submittedData: data,
+      paymentStatus: 'pending',
+      participantUserId: null,
+      processedBy: null
+    }).returning();
+    return registration;
+  }
+
+  async getRegistrations(): Promise<Registration[]> {
+    return await db.select().from(registrations).orderBy(desc(registrations.submittedAt));
+  }
+
+  async getRegistrationsByEvent(eventId: string): Promise<Registration[]> {
+    return await db.select().from(registrations).where(eq(registrations.eventId, eventId)).orderBy(desc(registrations.submittedAt));
+  }
+
+  async getRegistration(id: string): Promise<Registration | undefined> {
+    const [registration] = await db.select().from(registrations).where(eq(registrations.id, id));
+    return registration;
+  }
+
+  async updateRegistrationStatus(id: string, status: 'pending' | 'paid' | 'declined', participantUserId: string | null, processedBy: string): Promise<Registration> {
+    const [registration] = await db.update(registrations).set({
+      paymentStatus: status,
+      participantUserId,
+      processedBy,
+      processedAt: new Date()
+    }).where(eq(registrations.id, id)).returning();
+    return registration;
   }
 }
 

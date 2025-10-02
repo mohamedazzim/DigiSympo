@@ -1,6 +1,7 @@
 import { useParams, useLocation } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMemo } from 'react';
 import EventAdminLayout from '@/components/layouts/EventAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +16,7 @@ import { z } from 'zod';
 import { ArrowLeft } from 'lucide-react';
 
 const formSchema = insertRoundSchema.extend({
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
+  startTime: z.string().min(1, 'Start time is required'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -36,17 +36,29 @@ export default function RoundCreatePage() {
       duration: 60,
       status: 'upcoming',
       startTime: '',
-      endTime: '',
     },
   });
 
+  const startTime = form.watch('startTime');
+  const duration = form.watch('duration');
+
+  const calculatedEndTime = useMemo(() => {
+    if (!startTime || !duration) return null;
+    const start = new Date(startTime);
+    const end = new Date(start.getTime() + duration * 60 * 1000);
+    return end.toLocaleString();
+  }, [startTime, duration]);
+
   async function onSubmit(data: FormData) {
     try {
+      const start = new Date(data.startTime);
+      const end = new Date(start.getTime() + data.duration * 60 * 1000);
+
       const roundData = {
         ...data,
         eventId,
-        startTime: data.startTime || undefined,
-        endTime: data.endTime || undefined,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
       };
 
       await apiRequest('POST', `/api/events/${eventId}/rounds`, roundData);
@@ -192,45 +204,30 @@ export default function RoundCreatePage() {
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="startTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Time</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="datetime-local"
-                            {...field}
-                            data-testid="input-start-time"
-                          />
-                        </FormControl>
-                        <FormDescription>Optional</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Time</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="datetime-local"
+                          {...field}
+                          data-testid="input-start-time"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="endTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Time</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="datetime-local"
-                            {...field}
-                            data-testid="input-end-time"
-                          />
-                        </FormControl>
-                        <FormDescription>Optional</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {calculatedEndTime && (
+                  <div className="rounded-md bg-muted p-4" data-testid="text-calculated-end-time">
+                    <p className="text-sm font-medium">Calculated End Time</p>
+                    <p className="text-sm text-muted-foreground">{calculatedEndTime}</p>
+                  </div>
+                )}
 
                 <div className="flex gap-3">
                   <Button type="submit" data-testid="button-create">

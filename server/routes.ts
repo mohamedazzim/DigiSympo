@@ -3,12 +3,23 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { nanoid } from "nanoid";
 import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, type AuthRequest } from "./middleware/auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "symposium-secret-key-change-in-production";
 
 if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET must be set in production environment");
+}
+
+function generateFormSlug(eventName: string): string {
+  const slug = eventName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  return `${slug}-${nanoid(8)}`;
+}
+
+function generateSecurePassword(): string {
+  return crypto.randomBytes(12).toString('base64').slice(0, 16);
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -88,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "All fields are required" });
       }
 
-      const validRoles = ["super_admin", "event_admin", "participant"];
+      const validRoles = ["super_admin", "event_admin", "participant", "registration_committee"];
       if (!validRoles.includes(role)) {
         return res.status(400).json({ message: "Invalid role" });
       }
@@ -961,6 +972,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Backfill round rules error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/events/:eventId/registration-forms", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const { formFields } = req.body;
+      
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const slug = generateFormSlug(event.name);
+      const form = await storage.createRegistrationForm(eventId, slug, formFields);
+      
+      res.status(201).json(form);
+    } catch (error) {
+      console.error("Create registration form error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:eventId/registration-forms", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const forms = await storage.getRegistrationFormsByEvent(req.params.eventId);
+      res.json(forms);
+    } catch (error) {
+      console.error("Get registration forms error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/registration-forms/all", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const forms = await storage.getAllRegistrationForms();
+      res.json(forms);
+    } catch (error) {
+      console.error("Get all registration forms error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/registration-forms/:slug", async (req: Request, res: Response) => {
+    try {
+      const form = await storage.getRegistrationFormBySlug(req.params.slug);
+      if (!form) {
+        return res.status(404).json({ message: "Form not found" });
+      }
+      res.json(form);
+    } catch (error) {
+      console.error("Get registration form error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/registration-forms/:slug/submit", async (req: Request, res: Response) => {
+    try {
+      const form = await storage.getRegistrationFormBySlug(req.params.slug);
+      if (!form) {
+        return res.status(404).json({ message: "Form not found" });
+      }
+      
+      const registration = await storage.createRegistration(form.id, form.eventId, req.body);
+      res.status(201).json(registration);
+    } catch (error) {
+      console.error("Submit registration error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/registrations", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'super_admin' && user.role !== 'registration_committee') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const registrations = await storage.getRegistrations();
+      res.json(registrations);
+    } catch (error) {
+      console.error("Get registrations error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/registrations/:id/approve", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== 'super_admin' && user.role !== 'registration_committee') {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      
+      const registration = await storage.getRegistration(req.params.id);
+      if (!registration) {
+        return res.status(404).json({ message: 'Registration not found' });
+      }
+
+      if (registration.paymentStatus !== 'pending') {
+        return res.status(400).json({ message: 'Registration has already been processed' });
+      }
+      
+      const password = generateSecurePassword();
+      const userData = registration.submittedData;
+      
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const newUser = await storage.createUser({
+        username: userData.email.split('@')[0] + nanoid(4),
+        password: hashedPassword,
+        email: userData.email,
+        fullName: userData.fullName,
+        role: 'participant',
+      });
+      
+      await storage.registerParticipant({
+        userId: newUser.id,
+        eventId: registration.eventId,
+        status: 'registered'
+      });
+      
+      const updated = await storage.updateRegistrationStatus(
+        req.params.id,
+        'paid',
+        newUser.id,
+        user.id
+      );
+      
+      res.json({
+        registration: updated,
+        credentials: {
+          username: newUser.username,
+          password: password,
+          email: newUser.email,
+        }
+      });
+    } catch (error) {
+      console.error("Approve registration error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

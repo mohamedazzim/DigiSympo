@@ -12,7 +12,7 @@ import { ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import type { Event } from '@shared/schema';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 const formSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
@@ -62,6 +62,8 @@ export default function EventAdminCreatePage() {
           adminId: result.user.id,
         });
       }
+
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
 
       toast({
         title: 'Event Admin created',

@@ -35,6 +35,13 @@ import TakeTestPage from "@/pages/participant/take-test";
 import TestResultsPage from "@/pages/participant/test-results";
 import MyTestsPage from "@/pages/participant/my-tests";
 import LeaderboardPage from "@/pages/participant/leaderboard";
+import RegistrationFormsPage from "@/pages/admin/registration-forms";
+import RegistrationFormCreatePage from "@/pages/admin/registration-form-create";
+import AdminRegistrationsPage from "@/pages/admin/registrations";
+import RegistrationCommitteeCreatePage from "@/pages/admin/registration-committee-create";
+import RegistrationCommitteeDashboard from "@/pages/registration-committee/dashboard";
+import RegistrationCommitteeRegistrationsPage from "@/pages/registration-committee/registrations";
+import PublicRegistrationFormPage from "@/pages/public/registration-form";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -83,11 +90,14 @@ function Router() {
         {user ? (
           user.role === 'super_admin' ? <Redirect to="/admin/dashboard" /> :
           user.role === 'event_admin' ? <Redirect to="/event-admin/dashboard" /> :
+          user.role === 'registration_committee' ? <Redirect to="/registration-committee/dashboard" /> :
           <Redirect to="/participant/dashboard" />
         ) : (
           <Redirect to="/login" />
         )}
       </Route>
+
+      <Route path="/register/:slug" component={PublicRegistrationFormPage} />
 
       <Route path="/admin/dashboard">
         <ProtectedRoute component={AdminDashboard} allowedRoles={['super_admin']} />
@@ -121,6 +131,25 @@ function Router() {
       </Route>
       <Route path="/admin/reports/generate/symposium">
         <ProtectedRoute component={ReportGenerateSymposiumPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/registration-forms">
+        <ProtectedRoute component={RegistrationFormsPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/registration-forms/create">
+        <ProtectedRoute component={RegistrationFormCreatePage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/registrations">
+        <ProtectedRoute component={AdminRegistrationsPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/registration-committee/create">
+        <ProtectedRoute component={RegistrationCommitteeCreatePage} allowedRoles={['super_admin']} />
+      </Route>
+
+      <Route path="/registration-committee/dashboard">
+        <ProtectedRoute component={RegistrationCommitteeDashboard} allowedRoles={['registration_committee']} />
+      </Route>
+      <Route path="/registration-committee/registrations">
+        <ProtectedRoute component={RegistrationCommitteeRegistrationsPage} allowedRoles={['registration_committee']} />
       </Route>
 
       <Route path="/event-admin/dashboard">

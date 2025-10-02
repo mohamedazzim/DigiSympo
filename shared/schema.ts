@@ -3,14 +3,14 @@ import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "driz
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table - supports super_admin, event_admin, and participant roles
+// Users table - supports super_admin, event_admin, participant, and registration_committee roles
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
   fullName: text("full_name").notNull(),
-  role: text("role").notNull(), // super_admin, event_admin, participant
+  role: varchar("role", { enum: ['super_admin', 'event_admin', 'participant', 'registration_committee'] }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -157,6 +157,28 @@ export const reports = pgTable("reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Registration Forms - public registration forms for events
+export const registrationForms = pgTable("registration_forms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  formSlug: varchar("form_slug").unique().notNull(),
+  formFields: jsonb("form_fields").notNull().$type<Array<{id: string, label: string, type: string, required: boolean}>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Registrations - submissions from public registration forms
+export const registrations = pgTable("registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formId: varchar("form_id").references(() => registrationForms.id, { onDelete: 'cascade' }).notNull(),
+  eventId: varchar("event_id").references(() => events.id, { onDelete: 'cascade' }).notNull(),
+  submittedData: jsonb("submitted_data").notNull().$type<Record<string, string>>(),
+  paymentStatus: varchar("payment_status", { enum: ['pending', 'paid', 'declined'] }).default('pending').notNull(),
+  participantUserId: varchar("participant_user_id").references(() => users.id, { onDelete: 'set null' }),
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  processedAt: timestamp("processed_at"),
+  processedBy: varchar("processed_by").references(() => users.id, { onDelete: 'set null' }),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -214,6 +236,17 @@ export const insertReportSchema = createInsertSchema(reports).omit({
   createdAt: true,
 });
 
+export const insertRegistrationFormSchema = createInsertSchema(registrationForms).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRegistrationSchema = createInsertSchema(registrations).omit({
+  id: true,
+  submittedAt: true,
+  processedAt: true,
+});
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -246,3 +279,9 @@ export type InsertAnswer = z.infer<typeof insertAnswerSchema>;
 
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
+
+export type RegistrationForm = typeof registrationForms.$inferSelect;
+export type InsertRegistrationForm = z.infer<typeof insertRegistrationFormSchema>;
+
+export type Registration = typeof registrations.$inferSelect;
+export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;
