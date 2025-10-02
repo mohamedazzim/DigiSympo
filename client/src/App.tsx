@@ -16,6 +16,12 @@ import EventAdminCreatePage from "@/pages/admin/event-admin-create";
 import ReportsPage from "@/pages/admin/reports";
 import EventAdminDashboard from "@/pages/event-admin/dashboard";
 import EventAdminEventsPage from "@/pages/event-admin/events";
+import EventRulesPage from "@/pages/event-admin/event-rules";
+import EventRoundsPage from "@/pages/event-admin/event-rounds";
+import RoundCreatePage from "@/pages/event-admin/round-create";
+import RoundQuestionsPage from "@/pages/event-admin/round-questions";
+import QuestionCreatePage from "@/pages/event-admin/question-create";
+import EventParticipantsPage from "@/pages/event-admin/event-participants";
 import ParticipantDashboard from "@/pages/participant/dashboard";
 import ParticipantEventsPage from "@/pages/participant/events";
 
@@ -102,6 +108,24 @@ function Router() {
       </Route>
       <Route path="/event-admin/events">
         <ProtectedRoute component={EventAdminEventsPage} allowedRoles={['event_admin']} />
+      </Route>
+      <Route path="/event-admin/events/:eventId/rules">
+        <ProtectedRoute component={EventRulesPage} allowedRoles={['event_admin']} />
+      </Route>
+      <Route path="/event-admin/events/:eventId/rounds/new">
+        <ProtectedRoute component={RoundCreatePage} allowedRoles={['event_admin']} />
+      </Route>
+      <Route path="/event-admin/events/:eventId/rounds">
+        <ProtectedRoute component={EventRoundsPage} allowedRoles={['event_admin']} />
+      </Route>
+      <Route path="/event-admin/rounds/:roundId/questions/new">
+        <ProtectedRoute component={QuestionCreatePage} allowedRoles={['event_admin']} />
+      </Route>
+      <Route path="/event-admin/rounds/:roundId/questions">
+        <ProtectedRoute component={RoundQuestionsPage} allowedRoles={['event_admin']} />
+      </Route>
+      <Route path="/event-admin/events/:eventId/participants">
+        <ProtectedRoute component={EventParticipantsPage} allowedRoles={['event_admin']} />
       </Route>
 
       <Route path="/participant/dashboard">
