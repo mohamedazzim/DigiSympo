@@ -202,31 +202,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Username and password are required" });
       }
 
-      let user = await storage.getUserByUsername(username);
-      let isEventCredential = false;
-      
-      if (!user) {
-        const eventCredential = await storage.getEventCredentialByUsername(username);
-        if (eventCredential) {
-          if (eventCredential.eventPassword !== password) {
-            return res.status(401).json({ message: "Invalid credentials" });
-          }
-          
-          user = await storage.getUserById(eventCredential.participantUserId);
-          if (!user) {
-            return res.status(401).json({ message: "Invalid credentials" });
-          }
-          isEventCredential = true;
-        } else {
-          return res.status(401).json({ message: "Invalid credentials" });
-        }
+      if (username.startsWith("DISABLED_")) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      const eventCredential = await storage.getEventCredentialByUsername(username);
+      if (!eventCredential) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      if (eventCredential.eventPassword !== password) {
+        return res.status(401).json({ message: "Invalid credentials" });
       }
       
-      if (!isEventCredential) {
-        const isValidPassword = await bcrypt.compare(password, user.password);
-        if (!isValidPassword) {
-          return res.status(401).json({ message: "Invalid credentials" });
-        }
+      const user = await storage.getUserById(eventCredential.participantUserId);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
       }
 
       const token = jwt.sign(
@@ -1248,7 +1239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const hashedPassword = await bcrypt.hash(password, 10);
       const newUser = await storage.createUser({
-        username: email.split('@')[0] + nanoid(4),
+        username: `DISABLED_${nanoid(16)}`,
         password: hashedPassword,
         email: email,
         fullName: fullName,
