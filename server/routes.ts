@@ -1204,12 +1204,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const password = generateSecurePassword();
       const userData = registration.submittedData;
       
+      const extractEmail = (data: Record<string, string>): string => {
+        for (const value of Object.values(data)) {
+          if (value && typeof value === 'string' && value.includes('@') && value.includes('.')) {
+            return value;
+          }
+        }
+        throw new Error('Email not found in registration data');
+      };
+      
+      const extractFullName = (data: Record<string, string>): string => {
+        for (const value of Object.values(data)) {
+          if (value && typeof value === 'string' && value.includes(' ') && !value.includes('@')) {
+            return value;
+          }
+        }
+        return 'Participant';
+      };
+      
+      const email = extractEmail(userData);
+      const fullName = extractFullName(userData);
+      
       const hashedPassword = await bcrypt.hash(password, 10);
       const newUser = await storage.createUser({
-        username: userData.email.split('@')[0] + nanoid(4),
+        username: email.split('@')[0] + nanoid(4),
         password: hashedPassword,
-        email: userData.email,
-        fullName: userData.fullName,
+        email: email,
+        fullName: fullName,
         role: 'participant',
       });
       
@@ -1221,7 +1242,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const event = await storage.getEventById(eventId);
         if (!event) continue;
         
-        const eventUsername = `${event.name.toLowerCase().replace(/\s+/g, '-').substring(0, 10)}-${userData.fullName.split(' ')[0].toLowerCase()}-${nanoid(4)}`;
+        const firstName = fullName.split(' ')[0].toLowerCase();
+        const eventUsername = `${event.name.toLowerCase().replace(/\s+/g, '-').substring(0, 10)}-${firstName}-${nanoid(4)}`;
         const eventPassword = generateSecurePassword();
         
         await storage.createEventCredential(
