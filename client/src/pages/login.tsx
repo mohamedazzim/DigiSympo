@@ -38,13 +38,13 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Symposium Management</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center" data-testid="heading-login">Symposium Management</CardTitle>
           <CardDescription className="text-center">
             Sign in to access your dashboard
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" data-testid="form-login">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
@@ -54,6 +54,7 @@ export default function Login() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                data-testid="input-username"
               />
             </div>
             <div className="space-y-2">
@@ -65,9 +66,10 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                data-testid="input-password"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-submit">
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
