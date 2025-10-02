@@ -3,19 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, type AuthRequest } from "./middleware/auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "symposium-secret-key-change-in-production";
 
 if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET must be set in production environment");
-}
-
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-    role: string;
-  };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -26,6 +19,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!username || !password || !email || !fullName || !role) {
         return res.status(400).json({ message: "All fields are required" });
+      }
+
+      const validRoles = ["super_admin", "event_admin", "participant"];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
       }
 
       const existingUser = await storage.getUserByUsername(username);
@@ -112,30 +110,284 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/me", async (req: AuthRequest, res: Response) => {
+  app.get("/api/auth/me", requireAuth, async (req: AuthRequest, res: Response) => {
+    res.json(req.user);
+  });
+
+  app.get("/api/events", requireAuth, async (req: AuthRequest, res: Response) => {
     try {
-      const token = req.headers.authorization?.replace("Bearer ", "");
-      
-      if (!token) {
-        return res.status(401).json({ message: "No token provided" });
+      if (req.user!.role === "super_admin") {
+        const events = await storage.getEvents();
+        res.json(events);
+      } else if (req.user!.role === "event_admin") {
+        const events = await storage.getEventsByAdmin(req.user!.id);
+        res.json(events);
+      } else {
+        res.json([]);
       }
-
-      const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string; role: string };
-      const user = await storage.getUser(decoded.id);
-      
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      res.json({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role
-      });
     } catch (error) {
-      res.status(401).json({ message: "Invalid token" });
+      console.error("Get events error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:id", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const event = await storage.getEvent(req.params.id);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Get event error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/events", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { name, description, type, startDate, endDate, status } = req.body;
+      
+      if (!name || !description || !type) {
+        return res.status(400).json({ message: "Name, description, and type are required" });
+      }
+
+      const event = await storage.createEvent({
+        name,
+        description,
+        type,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        status: status || 'draft',
+        createdBy: req.user!.id
+      });
+
+      await storage.createEventRules({
+        eventId: event.id,
+        noRefresh: true,
+        noTabSwitch: true,
+        forceFullscreen: true,
+        disableShortcuts: true,
+        autoSubmitOnViolation: true,
+        maxTabSwitchWarnings: 2,
+        additionalRules: null
+      });
+
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Create event error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/events/:id", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { name, description, type, startDate, endDate, status } = req.body;
+      
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (description !== undefined) updateData.description = description;
+      if (type !== undefined) updateData.type = type;
+      if (startDate !== undefined) updateData.startDate = new Date(startDate);
+      if (endDate !== undefined) updateData.endDate = new Date(endDate);
+      if (status !== undefined) updateData.status = status;
+
+      const event = await storage.updateEvent(req.params.id, updateData);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      res.json(event);
+    } catch (error) {
+      console.error("Update event error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/events/:id", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      await storage.deleteEvent(req.params.id);
+      res.json({ message: "Event deleted successfully" });
+    } catch (error) {
+      console.error("Delete event error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/events/:eventId/admins", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { adminId } = req.body;
+      
+      if (!adminId) {
+        return res.status(400).json({ message: "Admin ID is required" });
+      }
+
+      const admin = await storage.getUser(adminId);
+      if (!admin || admin.role !== "event_admin") {
+        return res.status(400).json({ message: "Invalid event admin" });
+      }
+
+      await storage.assignEventAdmin(req.params.eventId, adminId);
+      res.json({ message: "Event admin assigned successfully" });
+    } catch (error) {
+      console.error("Assign event admin error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:eventId/admins", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const admins = await storage.getEventAdminsByEvent(req.params.eventId);
+      res.json(admins);
+    } catch (error) {
+      console.error("Get event admins error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/events/:eventId/admins/:adminId", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      await storage.removeEventAdmin(req.params.eventId, req.params.adminId);
+      res.json({ message: "Event admin removed successfully" });
+    } catch (error) {
+      console.error("Remove event admin error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:eventId/rules", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const rules = await storage.getEventRules(req.params.eventId);
+      if (!rules) {
+        return res.status(404).json({ message: "Event rules not found" });
+      }
+      res.json(rules);
+    } catch (error) {
+      console.error("Get event rules error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/events/:eventId/rules", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const { noRefresh, noTabSwitch, forceFullscreen, disableShortcuts, autoSubmitOnViolation, maxTabSwitchWarnings, additionalRules } = req.body;
+      
+      const updateData: any = {};
+      if (noRefresh !== undefined) updateData.noRefresh = noRefresh;
+      if (noTabSwitch !== undefined) updateData.noTabSwitch = noTabSwitch;
+      if (forceFullscreen !== undefined) updateData.forceFullscreen = forceFullscreen;
+      if (disableShortcuts !== undefined) updateData.disableShortcuts = disableShortcuts;
+      if (autoSubmitOnViolation !== undefined) updateData.autoSubmitOnViolation = autoSubmitOnViolation;
+      if (maxTabSwitchWarnings !== undefined) updateData.maxTabSwitchWarnings = maxTabSwitchWarnings;
+      if (additionalRules !== undefined) updateData.additionalRules = additionalRules;
+
+      const rules = await storage.updateEventRules(req.params.eventId, updateData);
+      if (!rules) {
+        return res.status(404).json({ message: "Event rules not found" });
+      }
+
+      res.json(rules);
+    } catch (error) {
+      console.error("Update event rules error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:eventId/rounds", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const rounds = await storage.getRoundsByEvent(req.params.eventId);
+      res.json(rounds);
+    } catch (error) {
+      console.error("Get rounds error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/events/:eventId/rounds", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const { name, description, roundNumber, duration, startTime, endTime, status } = req.body;
+      
+      if (!name || roundNumber === undefined || !duration) {
+        return res.status(400).json({ message: "Name, round number, and duration are required" });
+      }
+
+      const round = await storage.createRound({
+        eventId: req.params.eventId,
+        name,
+        description: description || null,
+        roundNumber,
+        duration,
+        startTime: startTime ? new Date(startTime) : null,
+        endTime: endTime ? new Date(endTime) : null,
+        status: status || 'upcoming'
+      });
+
+      res.status(201).json(round);
+    } catch (error) {
+      console.error("Create round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/rounds/:roundId/questions", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const questions = await storage.getQuestionsByRound(req.params.roundId);
+      res.json(questions);
+    } catch (error) {
+      console.error("Get questions error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/rounds/:roundId/questions", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const { questionType, questionText, questionNumber, points, options, correctAnswer, expectedOutput, testCases } = req.body;
+      
+      if (!questionType || !questionText || questionNumber === undefined) {
+        return res.status(400).json({ message: "Question type, text, and number are required" });
+      }
+
+      const question = await storage.createQuestion({
+        roundId: req.params.roundId,
+        questionType,
+        questionText,
+        questionNumber,
+        points: points || 1,
+        options: options || null,
+        correctAnswer: correctAnswer || null,
+        expectedOutput: expectedOutput || null,
+        testCases: testCases || null
+      });
+
+      res.status(201).json(question);
+    } catch (error) {
+      console.error("Create question error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/events/:eventId/participants", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const participant = await storage.registerParticipant({
+        eventId: req.params.eventId,
+        userId: req.user!.id,
+        status: 'registered'
+      });
+
+      res.status(201).json(participant);
+    } catch (error) {
+      console.error("Register participant error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/events/:eventId/participants", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const participants = await storage.getParticipantsByEvent(req.params.eventId);
+      res.json(participants);
+    } catch (error) {
+      console.error("Get participants error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 

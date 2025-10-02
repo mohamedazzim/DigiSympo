@@ -12,6 +12,7 @@ export interface IStorage {
   getEvents(): Promise<Event[]>;
   getEvent(id: string): Promise<Event | undefined>;
   getEventsByCreator(creatorId: string): Promise<Event[]>;
+  getEventsByAdmin(adminId: string): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
   deleteEvent(id: string): Promise<void>;
@@ -88,6 +89,15 @@ export class DatabaseStorage implements IStorage {
 
   async getEventsByCreator(creatorId: string): Promise<Event[]> {
     return await db.select().from(events).where(eq(events.createdBy, creatorId));
+  }
+
+  async getEventsByAdmin(adminId: string): Promise<Event[]> {
+    const result = await db
+      .select({ event: events })
+      .from(eventAdmins)
+      .innerJoin(events, eq(eventAdmins.eventId, events.id))
+      .where(eq(eventAdmins.adminId, adminId));
+    return result.map(r => r.event);
   }
 
   async createEvent(insertEvent: InsertEvent): Promise<Event> {
