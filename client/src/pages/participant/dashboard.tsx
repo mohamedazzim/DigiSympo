@@ -9,11 +9,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
 
 export default function ParticipantDashboard() {
   const [, setLocation] = useLocation();
   const [agreed, setAgreed] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: credentialData, isLoading } = useQuery<any>({
     queryKey: ['/api/participants/my-credential'],
@@ -84,7 +86,7 @@ export default function ParticipantDashboard() {
       <div className="max-w-4xl mx-auto p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2" data-testid="heading-dashboard">
-            BootFeet 2K26 | {event?.name || 'Event'} | {credentialData?.participantName || 'Participant'}
+            BootFeet 2K26 | {event?.name || 'Event'} | {user?.fullName || 'Participant'}
           </h1>
           <p className="text-gray-600" data-testid="text-event-description">
             {event?.description}
