@@ -46,13 +46,15 @@ export default function EventAdminCreatePage() {
   async function onSubmit(data: FormData) {
     try {
       // Create the event admin user
-      const result = await apiRequest('POST', '/api/auth/register', {
+      const response = await apiRequest('POST', '/api/auth/register', {
         username: data.username,
         password: data.password,
         email: data.email,
         fullName: data.fullName,
         role: 'event_admin',
       });
+
+      const result = await response.json();
 
       // Assign the newly created admin to the selected event
       if (result && result.user) {
