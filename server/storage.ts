@@ -10,6 +10,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserCredentials(userId: string, updates: { username?: string; email?: string; password?: string }): Promise<User | undefined>;
+  deleteUser(userId: string): Promise<void>;
   getOrphanedEventAdmins(): Promise<User[]>;
   
   getEvents(): Promise<Event[]>;
@@ -118,6 +119,10 @@ export class DatabaseStorage implements IStorage {
 
     const [user] = await db.update(users).set(updateData).where(eq(users.id, userId)).returning();
     return user;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
   }
 
   async getOrphanedEventAdmins(): Promise<User[]> {

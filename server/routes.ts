@@ -59,6 +59,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/users/:id", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      await storage.deleteUser(req.params.id);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Delete user error:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   app.get("/api/admin/orphaned-admins", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
     try {
       const orphanedAdmins = await storage.getOrphanedEventAdmins();

@@ -7,16 +7,49 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Pencil } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { User } from '@shared/schema';
 
 export default function EventAdminsPage() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ['/api/users'],
   });
+
+  async function handleDeleteAdmin(adminId: string) {
+    try {
+      await apiRequest('DELETE', `/api/users/${adminId}`, {});
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      
+      toast({
+        title: 'Admin deleted',
+        description: 'The admin account has been deleted successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Delete failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  }
 
   const eventAdmins = users?.filter(user => user.role === 'event_admin') || [];
 
@@ -83,14 +116,45 @@ export default function EventAdminsPage() {
                       <TableCell>{admin.email}</TableCell>
                       <TableCell>{new Date(admin.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setLocation(`/admin/event-admins/${admin.id}/edit`)}
-                          data-testid={`button-edit-${admin.id}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLocation(`/admin/event-admins/${admin.id}/edit`)}
+                            data-testid={`button-edit-${admin.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                data-testid={`button-delete-${admin.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Admin?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete {admin.fullName}? This will remove their account and all associated event assignments. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteAdmin(admin.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
