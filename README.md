@@ -8,7 +8,7 @@ A comprehensive React-based web application for managing symposium events with p
 - **Super Admin**: Full system access, event creation, event admin management, registration forms, system-wide reports
 - **Event Admin**: Manage assigned events, configure rounds/questions, monitor participants, view event credentials
 - **Registration Committee**: Review and approve participant registrations, generate credentials, download participant lists
-- **Participant**: Browse events, register through dynamic forms, take proctored tests, view results and leaderboards
+- **Participant**: Login with event-specific credentials, view rules and regulations, take proctored tests with admin-controlled access
 
 ### Dynamic Registration System
 - **Google Forms-Style Builder**: Create custom registration forms with drag-and-drop field builder
@@ -26,18 +26,38 @@ A comprehensive React-based web application for managing symposium events with p
 - **Export Functionality**: Download approved participant lists as text files
 - **Event Name Resolution**: Display event names (not IDs) throughout the interface
 
-### Event Credential System
-- **Main Account**: Primary login credentials for platform access
-- **Event-Specific Credentials**: Unique username/password per event for each participant
+### Participant Authentication System
+- **Event-Specific Credentials Only**: Participants login exclusively with event credentials (no main account access)
+- **Credential Generation**: Username and password generated during registration approval
+- **Single Event Access**: Each credential grants access to one specific event only
 - **Printable Lists**: Event admins can view, export, and print participant credentials with signature columns
 - **CSV Export**: Downloadable CSV files for attendance tracking
 
-### Proctored Online Testing
-- **Fullscreen Enforcement**: Mandatory fullscreen mode with user gesture activation
-- **Tab Switch Detection**: Automatic tracking and warnings for tab switching
-- **Violation Tracking**: Real-time logging of all proctoring violations
-- **Auto-Submit**: Automatic test submission on max violations or time expiry
-- **Refresh Prevention**: Blocks page refresh and keyboard shortcuts during tests
+### Simplified Participant Experience
+- **Streamlined Dashboard**: Clean interface displaying Symposium | Event Name | Participant Name
+- **Rules & Regulations**: Event/round rules displayed prominently before test access
+- **Agreement Requirement**: "I agree" checkbox must be accepted before proceeding
+- **Admin-Controlled Test Access**: "Begin Test" button enabled only when event admin permits
+- **No Navigation Menu**: Focused, distraction-free experience without event browsing or history
+- **Single-Purpose Interface**: Designed exclusively for taking the assigned test
+
+### Event Admin Test Control
+- **Enable/Disable Test Access**: Grant or revoke test access for individual participants
+- **Test Enablement Status**: View which participants have been granted test access
+- **Real-time Control**: Instantly enable/disable tests during the event
+- **Participant Management**: Monitor test enablement status from credentials dashboard
+- **Flexible Administration**: Control test timing independently for each participant
+
+### Strict Proctored Online Testing
+- **Fullscreen Enforcement**: Mandatory fullscreen mode with user gesture activation, strictly enforced throughout test
+- **Back Button Blocking**: Prevents browser back navigation during active tests
+- **Refresh Prevention**: Blocks page refresh (F5, Ctrl+R, Cmd+R) and all refresh shortcuts
+- **Tab Switch Detection**: Automatic tracking and violation warnings for tab switching attempts
+- **Window/Tab Close Protection**: Blocks Ctrl+W, Cmd+W, and other closing shortcuts
+- **Keyboard Shortcut Blocking**: Disables all potentially disruptive keyboard shortcuts during test
+- **Violation Tracking**: Real-time logging of all proctoring violations with timestamps
+- **Auto-Submit on Violations**: Automatic test submission when max violations reached
+- **Timer Auto-Submit**: Automatic submission when time expires
 - **Round-Specific Rules**: Configure proctoring rules per round (overrides event-level rules)
 
 ### Event Management
@@ -154,15 +174,15 @@ Use these credentials to test different role functionalities.
 │   │   │   └── public/             # Public registration forms
 │   │   └── lib/         # Utilities and helpers
 ├── server/              # Backend Express application
-│   ├── routes.ts        # API endpoint definitions (35+ endpoints)
+│   ├── routes.ts        # API endpoint definitions (39+ endpoints)
 │   ├── storage.ts       # Database operations
 │   └── middleware/      # Authentication & authorization
 ├── shared/              # Shared types and schemas
-│   └── schema.ts        # Database schema with Drizzle (11 tables)
+│   └── schema.ts        # Database schema with Drizzle (14 tables)
 └── db/                  # Database configuration
 ```
 
-## API Endpoints (35+)
+## API Endpoints (39+)
 
 ### Authentication
 - `POST /api/auth/register` - User registration
@@ -218,6 +238,10 @@ Use these credentials to test different role functionalities.
 - `GET /api/events/:eventId/participants` - List participants
 - `GET /api/events/:eventId/event-credentials` - Get event-specific credentials (CSV export)
 - `GET /api/participants/my-registrations` - Get participant's registered events
+- `GET /api/participants/my-credential` - Get current participant's event credential
+- `PATCH /api/event-credentials/:id/enable-test` - Enable test access for participant
+- `PATCH /api/event-credentials/:id/disable-test` - Disable test access for participant
+- `GET /api/events/:eventId/credentials-status` - Get test enablement status for all participants
 
 ### Test Attempts
 - `POST /api/attempts/start` - Start test attempt
@@ -263,7 +287,9 @@ Use these credentials to test different role functionalities.
 4. Add questions (manually or bulk upload CSV/JSON)
 5. Monitor participant registrations
 6. View and export participant credentials with signature columns
-7. View participant performance
+7. Enable/disable test access for individual participants
+8. Monitor test enablement status across all participants
+9. View participant performance
 
 ### Participant
 1. Access public registration form via shareable link
@@ -271,14 +297,22 @@ Use these credentials to test different role functionalities.
 3. Select events (1 technical + 1 non-technical)
 4. View time overlap warnings
 5. Submit registration for approval
-6. Receive credentials after approval
-7. Take proctored tests with:
-   - Real-time countdown timer
-   - Fullscreen enforcement
-   - Violation tracking
-8. View test results and performance analytics
-9. Check leaderboard rankings
-10. Review test history
+6. Receive event-specific credentials after approval
+7. Login using event credentials (username/password)
+8. View simplified dashboard with Symposium | Event Name | Participant Name
+9. Read event and round rules & regulations
+10. Accept agreement by checking "I agree" checkbox
+11. Wait for event admin to enable test access
+12. Click "Begin Test" button when enabled by admin
+13. Complete proctored test with strict enforcement:
+    - Real-time countdown timer
+    - Mandatory fullscreen mode
+    - Back button blocking
+    - Refresh prevention
+    - Tab switch detection
+    - Keyboard shortcut blocking
+    - Automatic violation tracking
+    - Auto-submit on max violations or time expiry
 
 ## Security Features
 
@@ -304,14 +338,18 @@ The system implements strict browser-based proctoring with configurable rules:
 - Overrides event-level settings for that round
 - Lazy creation: Auto-generated on first access
 
-### Proctoring Features
+### Strict Proctoring Features
 - **Begin Test Screen**: Requires explicit user gesture to activate fullscreen
-- **Fullscreen Lock**: Blocks attempts to exit fullscreen during test
+- **Fullscreen Lock**: Blocks all attempts to exit fullscreen during test
+- **Back Button Blocking**: Prevents browser back navigation completely
+- **Refresh Prevention**: Blocks F5, Ctrl+R, Cmd+R, and all refresh attempts
 - **Tab Switch Detection**: Counts and warns on tab switches (configurable limit)
-- **Refresh Prevention**: Prevents page refresh during active tests
-- **Violation Warnings**: Shows modal warnings for violations
-- **Auto-Submit**: Automatically submits test after max violations (configurable)
-- **Violation Logs**: Complete audit trail for event admins
+- **Window Close Protection**: Blocks Ctrl+W, Cmd+W, and other closing shortcuts
+- **Keyboard Shortcut Blocking**: Disables all potentially disruptive shortcuts
+- **Violation Warnings**: Shows modal warnings for all violations
+- **Auto-Submit on Violations**: Automatically submits after max violations (configurable)
+- **Timer Auto-Submit**: Automatic submission when time expires
+- **Violation Logs**: Complete audit trail with timestamps for event admins
 
 ### Configurable Options
 - No Refresh (true/false)
@@ -322,21 +360,21 @@ The system implements strict browser-based proctoring with configurable rules:
 - Max Tab Switch Warnings (integer)
 - Additional Rules (text)
 
-## Database Schema (11 Tables)
+## Database Schema (14 Tables)
 
 1. **users** - User accounts with roles (super_admin, event_admin, registration_committee, participant)
 2. **events** - Symposium events with categories and status
 3. **event_admins** - Admin-to-event assignments
 4. **event_rules** - Event-level proctoring configuration
 5. **rounds** - Event rounds with timing and status
-6. **round_rules** - Round-specific proctoring configuration (NEW)
+6. **round_rules** - Round-specific proctoring configuration
 7. **questions** - Test questions with answers
 8. **participants** - Event registrations
 9. **test_attempts** - Test sessions with scoring
 10. **answers** - Participant responses
-11. **registration_forms** - Dynamic registration forms (NEW)
-12. **registrations** - Form submissions pending approval (NEW)
-13. **event_credentials** - Event-specific login credentials (NEW)
+11. **registration_forms** - Dynamic registration forms
+12. **registrations** - Form submissions pending approval
+13. **event_credentials** - Event-specific login credentials with test access control (testEnabled, enabledAt, enabledBy)
 14. **reports** - Generated reports
 
 ## Data Integrity and Management
@@ -444,16 +482,20 @@ npm run db:push --force
 **Overall Completion: 100% ✅**
 
 ### Completed Features:
-- ✅ Database schema (11 tables)
-- ✅ Backend API (35+ endpoints)
+- ✅ Database schema (14 tables)
+- ✅ Backend API (39+ endpoints)
 - ✅ Authentication & authorization
 - ✅ Super Admin Dashboard
 - ✅ Event Admin Dashboard
 - ✅ Registration Committee Dashboard
-- ✅ Participant Interface
+- ✅ Simplified Participant Interface
+- ✅ Event-Specific Participant Authentication
+- ✅ Admin-Controlled Test Access
+- ✅ Test Enablement Management
 - ✅ Dynamic Registration Forms
 - ✅ Event Credentials System
-- ✅ Proctoring System (event & round-level)
+- ✅ Strict Proctoring System (event & round-level)
+- ✅ Browser Control & Violation Tracking
 - ✅ Leaderboard & Rankings
 - ✅ Report Generation
 - ✅ Bulk Question Upload

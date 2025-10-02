@@ -269,6 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         eventUsername: credential.eventUsername,
         testEnabled: credential.testEnabled,
         enabledAt: credential.enabledAt,
+        participantName: user.fullName,
         event: {
           id: event.id,
           name: event.name,
