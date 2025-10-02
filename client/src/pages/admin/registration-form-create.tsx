@@ -369,43 +369,63 @@ export default function RegistrationFormCreatePage() {
           </div>
 
           <div className="lg:col-span-1">
-            <Card className="sticky top-6">
-              <CardHeader>
-                <CardTitle className="text-lg">Form Preview</CardTitle>
-                <CardDescription>How participants will see the form</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {title && (
-                  <div>
-                    <h3 className="text-xl font-semibold" data-testid="preview-title">{title}</h3>
+            <div className="lg:sticky lg:top-6">
+              <Card>
+                <CardHeader className="bg-blue-50 dark:bg-blue-950">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                    Live Preview
+                  </CardTitle>
+                  <CardDescription>How participants will see the form</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-6 min-h-[400px]">
+                  <div className="border-l-4 border-blue-500 pl-4">
+                    <h3 className="text-xl font-semibold" data-testid="preview-title">
+                      {title || 'Form Title Will Appear Here'}
+                    </h3>
+                    {description && (
+                      <p className="text-sm text-muted-foreground mt-2" data-testid="preview-description">
+                        {description}
+                      </p>
+                    )}
+                    {!description && (
+                      <p className="text-sm text-muted-foreground mt-2 italic">
+                        Add a description to show here
+                      </p>
+                    )}
                   </div>
-                )}
 
-                {description && (
-                  <p className="text-sm text-muted-foreground" data-testid="preview-description">{description}</p>
-                )}
+                  <div className="space-y-3 pt-4">
+                    {formFields.length > 0 ? (
+                      formFields.map((field) => (
+                        <div key={field.id} className="space-y-1" data-testid={`preview-field-${field.id}`}>
+                          <label className="text-sm font-medium block">
+                            {field.label || 'Field Label'} {field.required && <span className="text-destructive">*</span>}
+                          </label>
+                          <Input
+                            type={field.type}
+                            placeholder={field.placeholder || `Enter ${field.label || 'value'}...`}
+                            disabled
+                            className="bg-muted/50 border-2"
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="text-sm italic">No fields added yet</p>
+                        <p className="text-xs mt-1">Click "Add Field" to start building your form</p>
+                      </div>
+                    )}
+                  </div>
 
-                <div className="space-y-3 pt-2">
-                  {formFields.map((field) => (
-                    <div key={field.id} className="space-y-1" data-testid={`preview-field-${field.id}`}>
-                      <label className="text-sm font-medium">
-                        {field.label} {field.required && <span className="text-destructive">*</span>}
-                      </label>
-                      <Input
-                        type={field.type}
-                        placeholder={field.placeholder || ''}
-                        disabled
-                        className="bg-muted"
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {formFields.length === 0 && (
-                  <p className="text-sm text-muted-foreground italic">No fields added yet</p>
-                )}
-              </CardContent>
-            </Card>
+                  <div className="pt-4 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      ℹ️ This is a live preview. Changes appear instantly.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
