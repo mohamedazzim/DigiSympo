@@ -202,14 +202,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Username and password are required" });
       }
 
-      const user = await storage.getUserByUsername(username);
+      let user = await storage.getUserByUsername(username);
+      let isEventCredential = false;
+      
       if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        const eventCredential = await storage.getEventCredentialByUsername(username);
+        if (eventCredential) {
+          if (eventCredential.eventPassword !== password) {
+            return res.status(401).json({ message: "Invalid credentials" });
+          }
+          
+          user = await storage.getUserById(eventCredential.participantUserId);
+          if (!user) {
+            return res.status(401).json({ message: "Invalid credentials" });
+          }
+          isEventCredential = true;
+        } else {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
       }
-
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return res.status(401).json({ message: "Invalid credentials" });
+      
+      if (!isEventCredential) {
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
       }
 
       const token = jwt.sign(
@@ -247,6 +264,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (req.user!.role === "event_admin") {
         const events = await storage.getEventsByAdmin(req.user!.id);
         res.json(events);
+      } else if (req.user!.role === "participant") {
+        const allEvents = await storage.getEvents();
+        const activeEvents = allEvents.filter(e => e.status === 'active');
+        res.json(activeEvents);
       } else {
         res.json([]);
       }

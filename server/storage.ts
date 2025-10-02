@@ -819,6 +819,20 @@ export class DatabaseStorage implements IStorage {
     return result as any;
   }
 
+  async getEventCredentialByUsername(eventUsername: string): Promise<EventCredential | undefined> {
+    const [credential] = await db.select()
+      .from(eventCredentials)
+      .where(eq(eventCredentials.eventUsername, eventUsername));
+    return credential;
+  }
+
+  async getUserById(userId: string): Promise<User | undefined> {
+    const [user] = await db.select()
+      .from(users)
+      .where(eq(users.id, userId));
+    return user;
+  }
+
   async isUserEventAdmin(userId: string, eventId: string): Promise<boolean> {
     const [assignment] = await db.select()
       .from(eventAdmins)
