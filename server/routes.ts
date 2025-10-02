@@ -402,6 +402,238 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test Attempt Routes
+  app.post("/api/events/:eventId/rounds/:roundId/start", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const { roundId } = req.params;
+      const userId = req.user!.id;
+
+      // Check if user already has an attempt for this round
+      const existingAttempt = await storage.getTestAttemptByUserAndRound(userId, roundId);
+      if (existingAttempt) {
+        return res.status(400).json({ message: "You already have an attempt for this round" });
+      }
+
+      // Get round to calculate max score
+      const round = await storage.getRound(roundId);
+      if (!round) {
+        return res.status(404).json({ message: "Round not found" });
+      }
+
+      // Get questions to calculate max score
+      const questions = await storage.getQuestionsByRound(roundId);
+      const maxScore = questions.reduce((sum, q) => sum + q.points, 0);
+
+      const attempt = await storage.createTestAttempt({
+        roundId,
+        userId,
+        status: 'in_progress',
+        tabSwitchCount: 0,
+        refreshAttemptCount: 0,
+        violationLogs: [],
+        totalScore: 0,
+        maxScore
+      });
+
+      res.status(201).json(attempt);
+    } catch (error) {
+      console.error("Start test attempt error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/attempts/:attemptId", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      const attempt = await storage.getTestAttempt(req.params.attemptId);
+      if (!attempt) {
+        return res.status(404).json({ message: "Test attempt not found" });
+      }
+
+      // Only allow user to view their own attempt or admins
+      if (attempt.userId !== req.user!.id && req.user!.role === 'participant') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get round and questions
+      const round = await storage.getRound(attempt.roundId);
+      const questions = await storage.getQuestionsByRound(attempt.roundId);
+      const answers = await storage.getAnswersByAttempt(attempt.id);
+
+      res.json({
+        ...attempt,
+        round,
+        questions,
+        answers
+      });
+    } catch (error) {
+      console.error("Get test attempt error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/attempts/:attemptId/answers", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const { attemptId } = req.params;
+      const { questionId, answer } = req.body;
+
+      if (!questionId || answer === undefined) {
+        return res.status(400).json({ message: "Question ID and answer are required" });
+      }
+
+      const attempt = await storage.getTestAttempt(attemptId);
+      if (!attempt) {
+        return res.status(404).json({ message: "Test attempt not found" });
+      }
+
+      if (attempt.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (attempt.status !== 'in_progress') {
+        return res.status(400).json({ message: "Test is not in progress" });
+      }
+
+      // Check if answer already exists
+      const existingAnswers = await storage.getAnswersByAttempt(attemptId);
+      const existingAnswer = existingAnswers.find(a => a.questionId === questionId);
+
+      let savedAnswer;
+      if (existingAnswer) {
+        savedAnswer = await storage.updateAnswer(existingAnswer.id, { answer });
+      } else {
+        savedAnswer = await storage.createAnswer({
+          attemptId,
+          questionId,
+          answer,
+          isCorrect: false,
+          pointsAwarded: 0
+        });
+      }
+
+      res.json(savedAnswer);
+    } catch (error) {
+      console.error("Save answer error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/attempts/:attemptId/violations", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const { attemptId } = req.params;
+      const { type } = req.body; // 'tab_switch', 'refresh', 'shortcut'
+
+      const attempt = await storage.getTestAttempt(attemptId);
+      if (!attempt) {
+        return res.status(404).json({ message: "Test attempt not found" });
+      }
+
+      if (attempt.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (attempt.status !== 'in_progress') {
+        return res.status(400).json({ message: "Test is not in progress" });
+      }
+
+      const violationLogs = (attempt.violationLogs as any[]) || [];
+      violationLogs.push({
+        type,
+        timestamp: new Date().toISOString()
+      });
+
+      const updates: any = { violationLogs };
+
+      if (type === 'tab_switch') {
+        updates.tabSwitchCount = (attempt.tabSwitchCount || 0) + 1;
+      } else if (type === 'refresh') {
+        updates.refreshAttemptCount = (attempt.refreshAttemptCount || 0) + 1;
+      }
+
+      const updatedAttempt = await storage.updateTestAttempt(attemptId, updates);
+
+      res.json(updatedAttempt);
+    } catch (error) {
+      console.error("Log violation error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/attempts/:attemptId/submit", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const { attemptId } = req.params;
+
+      const attempt = await storage.getTestAttempt(attemptId);
+      if (!attempt) {
+        return res.status(404).json({ message: "Test attempt not found" });
+      }
+
+      if (attempt.userId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (attempt.status !== 'in_progress') {
+        return res.status(400).json({ message: "Test is already submitted" });
+      }
+
+      // Get questions and answers to calculate score
+      const questions = await storage.getQuestionsByRound(attempt.roundId);
+      const answers = await storage.getAnswersByAttempt(attemptId);
+
+      let totalScore = 0;
+
+      // Grade answers
+      for (const answer of answers) {
+        const question = questions.find(q => q.id === answer.questionId);
+        if (!question) continue;
+
+        let isCorrect = false;
+        let pointsAwarded = 0;
+
+        // Auto-grade multiple choice and true/false
+        if (question.questionType === 'multiple_choice' || question.questionType === 'true_false') {
+          isCorrect = answer.answer.toLowerCase() === (question.correctAnswer || '').toLowerCase();
+          pointsAwarded = isCorrect ? question.points : 0;
+        }
+        // For short answer and coding, require manual grading (set to 0 for now)
+        else {
+          isCorrect = false;
+          pointsAwarded = 0;
+        }
+
+        totalScore += pointsAwarded;
+
+        // Update answer with grading
+        await storage.updateAnswer(answer.id, {
+          isCorrect,
+          pointsAwarded
+        });
+      }
+
+      // Update attempt as completed
+      const updatedAttempt = await storage.updateTestAttempt(attemptId, {
+        status: 'completed',
+        submittedAt: new Date(),
+        completedAt: new Date(),
+        totalScore
+      });
+
+      res.json(updatedAttempt);
+    } catch (error) {
+      console.error("Submit test error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/participants/my-attempts", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const attempts = await storage.getTestAttemptsByUser(req.user!.id);
+      res.json(attempts);
+    } catch (error) {
+      console.error("Get my attempts error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

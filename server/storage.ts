@@ -43,6 +43,7 @@ export interface IStorage {
   
   getTestAttempt(id: string): Promise<TestAttempt | undefined>;
   getTestAttemptByUserAndRound(userId: string, roundId: string): Promise<TestAttempt | undefined>;
+  getTestAttemptsByUser(userId: string): Promise<TestAttempt[]>;
   createTestAttempt(attempt: InsertTestAttempt): Promise<TestAttempt>;
   updateTestAttempt(id: string, attempt: Partial<InsertTestAttempt>): Promise<TestAttempt | undefined>;
   
@@ -215,6 +216,10 @@ export class DatabaseStorage implements IStorage {
     const [attempt] = await db.select().from(testAttempts)
       .where(and(eq(testAttempts.userId, userId), eq(testAttempts.roundId, roundId)));
     return attempt;
+  }
+
+  async getTestAttemptsByUser(userId: string): Promise<TestAttempt[]> {
+    return await db.select().from(testAttempts).where(eq(testAttempts.userId, userId));
   }
 
   async createTestAttempt(insertAttempt: InsertTestAttempt): Promise<TestAttempt> {
