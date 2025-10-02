@@ -15,7 +15,12 @@ export default function ParticipantDashboard() {
     queryKey: ['/api/events'],
   });
 
+  const { data: registrations } = useQuery<Participant[]>({
+    queryKey: ['/api/participants/my-registrations'],
+  });
+
   const activeEvents = events?.filter(e => e.status === 'active') || [];
+  const myEventsCount = registrations?.length || 0;
 
   return (
     <ParticipantLayout>
@@ -37,13 +42,13 @@ export default function ParticipantDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" data-testid="card-my-events">
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/participant/tests')} data-testid="card-my-events">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">My Events</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold" data-testid="text-registered-count">{myEventsCount}</div>
               <p className="text-xs text-muted-foreground">Registered events</p>
             </CardContent>
           </Card>

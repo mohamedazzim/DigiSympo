@@ -39,6 +39,7 @@ export interface IStorage {
   deleteQuestion(id: string): Promise<void>;
   
   getParticipantsByEvent(eventId: string): Promise<Participant[]>;
+  getParticipantsByUser(userId: string): Promise<Participant[]>;
   registerParticipant(participant: InsertParticipant): Promise<Participant>;
   
   getTestAttempt(id: string): Promise<TestAttempt | undefined>;
@@ -200,6 +201,10 @@ export class DatabaseStorage implements IStorage {
 
   async getParticipantsByEvent(eventId: string): Promise<Participant[]> {
     return await db.select().from(participants).where(eq(participants.eventId, eventId));
+  }
+
+  async getParticipantsByUser(userId: string): Promise<Participant[]> {
+    return await db.select().from(participants).where(eq(participants.userId, userId));
   }
 
   async registerParticipant(insertParticipant: InsertParticipant): Promise<Participant> {

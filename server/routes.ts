@@ -402,6 +402,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/participants/my-registrations", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const participants = await storage.getParticipantsByUser(req.user!.id);
+      res.json(participants);
+    } catch (error) {
+      console.error("Get my registrations error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Test Attempt Routes
   app.post("/api/events/:eventId/rounds/:roundId/start", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
     try {
