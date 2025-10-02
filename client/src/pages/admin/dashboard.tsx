@@ -1,14 +1,21 @@
 import { useAuth } from '@/lib/auth';
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Users, FileText, Settings } from 'lucide-react';
+import { Calendar, Users, FileText, Settings, FormInput } from 'lucide-react';
 import AdminLayout from '@/components/layouts/AdminLayout';
+import type { Event } from '@shared/schema';
 
 export default function AdminDashboard() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+
+  const { data: events = [] } = useQuery<Event[]>({
+    queryKey: ['/api/events'],
+    enabled: !!user && user.role === 'super_admin',
+  });
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== 'super_admin')) {
@@ -66,6 +73,28 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/admin/registration-forms')} data-testid="card-registration-forms">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Registration Forms</CardTitle>
+              <FormInput className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">Manage</div>
+              <p className="text-xs text-muted-foreground">Create and manage registration forms</p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setLocation('/admin/registrations')} data-testid="card-registrations">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Registrations</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">View</div>
+              <p className="text-xs text-muted-foreground">View all participant registrations</p>
+            </CardContent>
+          </Card>
+
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" data-testid="card-settings">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Settings</CardTitle>
@@ -89,6 +118,24 @@ export default function AdminDashboard() {
             </Button>
             <Button className="w-full" variant="outline" onClick={() => setLocation('/admin/event-admins/create')} data-testid="button-create-admin">
               Create Event Admin Account
+            </Button>
+            <Button 
+              className="w-full" 
+              variant="outline" 
+              onClick={() => setLocation('/admin/registration-forms/create')} 
+              data-testid="button-create-registration-form"
+              disabled={events.length === 0}
+              title={events.length === 0 ? "Create at least one event first" : "Create registration form"}
+            >
+              Create Registration Form
+            </Button>
+            <Button 
+              className="w-full" 
+              variant="outline" 
+              onClick={() => setLocation('/admin/registration-committee/create')} 
+              data-testid="button-create-registration-committee"
+            >
+              Create Registration Committee Account
             </Button>
           </CardContent>
         </Card>

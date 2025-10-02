@@ -7,7 +7,9 @@ import {
   Users, 
   FileText, 
   LayoutDashboard,
-  LogOut
+  LogOut,
+  FormInput,
+  UserCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +21,9 @@ const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Events', href: '/admin/events', icon: Calendar },
   { name: 'Event Admins', href: '/admin/event-admins', icon: Users },
+  { name: 'Registration Forms', href: '/admin/registration-forms', icon: FormInput },
+  { name: 'Registration Committee', href: '/admin/registration-committee', icon: UserCheck },
+  { name: 'Registrations', href: '/admin/registrations', icon: FileText },
   { name: 'Reports', href: '/admin/reports', icon: FileText },
 ];
 

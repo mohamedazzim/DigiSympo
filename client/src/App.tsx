@@ -38,6 +38,7 @@ import LeaderboardPage from "@/pages/participant/leaderboard";
 import RegistrationFormsPage from "@/pages/admin/registration-forms";
 import RegistrationFormCreatePage from "@/pages/admin/registration-form-create";
 import AdminRegistrationsPage from "@/pages/admin/registrations";
+import RegistrationCommitteePage from "@/pages/admin/registration-committee";
 import RegistrationCommitteeCreatePage from "@/pages/admin/registration-committee-create";
 import RegistrationCommitteeDashboard from "@/pages/registration-committee/dashboard";
 import RegistrationCommitteeRegistrationsPage from "@/pages/registration-committee/registrations";
@@ -140,6 +141,9 @@ function Router() {
       </Route>
       <Route path="/admin/registrations">
         <ProtectedRoute component={AdminRegistrationsPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/registration-committee">
+        <ProtectedRoute component={RegistrationCommitteePage} allowedRoles={['super_admin']} />
       </Route>
       <Route path="/admin/registration-committee/create">
         <ProtectedRoute component={RegistrationCommitteeCreatePage} allowedRoles={['super_admin']} />
