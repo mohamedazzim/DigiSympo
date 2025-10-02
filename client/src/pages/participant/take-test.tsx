@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Clock, AlertTriangle, Send, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { TestAttempt, Question, Answer, Round, EventRules } from '@shared/schema';
+import type { TestAttempt, Question, Answer, Round, RoundRules } from '@shared/schema';
 
 interface TestAttemptWithDetails extends TestAttempt {
   round: Round;
@@ -49,9 +49,9 @@ export default function TakeTestPage() {
     }
   }, [attempt?.status]);
 
-  const { data: rules } = useQuery<EventRules>({
-    queryKey: ['/api/events', attempt?.round?.eventId, 'rules'],
-    enabled: !!attempt?.round?.eventId,
+  const { data: rules } = useQuery<RoundRules>({
+    queryKey: ['/api/rounds', attempt?.roundId, 'rules'],
+    enabled: !!attempt?.roundId,
   });
 
   // Mutations defined early to avoid TDZ issues

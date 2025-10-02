@@ -62,13 +62,23 @@ export default function RoundQuestionsPage() {
               <h1 className="text-3xl font-bold text-gray-900" data-testid="heading-questions">Questions Management</h1>
               <p className="text-gray-600 mt-1">Manage questions for this round</p>
             </div>
-            <Button
-              onClick={() => setLocation(`/event-admin/rounds/${roundId}/questions/new`)}
-              data-testid="button-create-question"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Question
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setLocation(`/event-admin/rounds/${roundId}/questions/bulk-upload`)}
+                data-testid="button-bulk-upload"
+              >
+                <FileQuestion className="mr-2 h-4 w-4" />
+                Bulk Upload
+              </Button>
+              <Button
+                onClick={() => setLocation(`/event-admin/rounds/${roundId}/questions/new`)}
+                data-testid="button-create-question"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Question
+              </Button>
+            </div>
           </div>
         </div>
 

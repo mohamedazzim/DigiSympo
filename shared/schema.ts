@@ -66,6 +66,21 @@ export const rounds = pgTable("rounds", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Round Rules - proctoring and test rules per round
+export const roundRules = pgTable("round_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roundId: varchar("round_id").references(() => rounds.id, { onDelete: 'cascade' }).notNull().unique(),
+  noRefresh: boolean("no_refresh").notNull().default(true),
+  noTabSwitch: boolean("no_tab_switch").notNull().default(true),
+  forceFullscreen: boolean("force_fullscreen").notNull().default(true),
+  disableShortcuts: boolean("disable_shortcuts").notNull().default(true),
+  autoSubmitOnViolation: boolean("auto_submit_on_violation").notNull().default(true),
+  maxTabSwitchWarnings: integer("max_tab_switch_warnings").notNull().default(2),
+  additionalRules: text("additional_rules"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Questions - per round
 export const questions = pgTable("questions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -164,6 +179,12 @@ export const insertRoundSchema = createInsertSchema(rounds).omit({
   updatedAt: true,
 });
 
+export const insertRoundRulesSchema = createInsertSchema(roundRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertQuestionSchema = createInsertSchema(questions).omit({
   id: true,
   createdAt: true,
@@ -205,6 +226,9 @@ export type InsertEventRules = z.infer<typeof insertEventRulesSchema>;
 
 export type Round = typeof rounds.$inferSelect;
 export type InsertRound = z.infer<typeof insertRoundSchema>;
+
+export type RoundRules = typeof roundRules.$inferSelect;
+export type InsertRoundRules = z.infer<typeof insertRoundRulesSchema>;
 
 export type Question = typeof questions.$inferSelect;
 export type InsertQuestion = z.infer<typeof insertQuestionSchema>;

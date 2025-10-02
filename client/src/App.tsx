@@ -22,7 +22,9 @@ import EventRulesPage from "@/pages/event-admin/event-rules";
 import EventRoundsPage from "@/pages/event-admin/event-rounds";
 import RoundCreatePage from "@/pages/event-admin/round-create";
 import RoundQuestionsPage from "@/pages/event-admin/round-questions";
+import RoundRulesPage from "@/pages/event-admin/round-rules";
 import QuestionCreatePage from "@/pages/event-admin/question-create";
+import QuestionsBulkUploadPage from "@/pages/event-admin/questions-bulk-upload";
 import EventParticipantsPage from "@/pages/event-admin/event-participants";
 import AllParticipantsPage from "@/pages/event-admin/all-participants";
 import ParticipantDashboard from "@/pages/participant/dashboard";
@@ -135,8 +137,14 @@ function Router() {
       <Route path="/event-admin/rounds/:roundId/questions/new">
         <ProtectedRoute component={QuestionCreatePage} allowedRoles={['event_admin']} />
       </Route>
+      <Route path="/event-admin/rounds/:roundId/questions/bulk-upload">
+        <ProtectedRoute component={QuestionsBulkUploadPage} allowedRoles={['event_admin']} />
+      </Route>
       <Route path="/event-admin/rounds/:roundId/questions">
         <ProtectedRoute component={RoundQuestionsPage} allowedRoles={['event_admin']} />
+      </Route>
+      <Route path="/event-admin/rounds/:roundId/rules">
+        <ProtectedRoute component={RoundRulesPage} allowedRoles={['event_admin']} />
       </Route>
       <Route path="/event-admin/events/:eventId/participants">
         <ProtectedRoute component={EventParticipantsPage} allowedRoles={['event_admin']} />

@@ -1,7 +1,7 @@
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { db } from './db';
-import { users, events, eventAdmins, eventRules, rounds, questions, participants, testAttempts, answers, reports } from '@shared/schema';
-import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport } from '@shared/schema';
+import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports } from '@shared/schema';
+import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport } from '@shared/schema';
 
 export interface IStorage {
   getUsers(): Promise<User[]>;
@@ -12,6 +12,7 @@ export interface IStorage {
   
   getEvents(): Promise<Event[]>;
   getEvent(id: string): Promise<Event | undefined>;
+  getEventByName(name: string): Promise<Event | undefined>;
   getEventsByCreator(creatorId: string): Promise<Event[]>;
   getEventsByAdmin(adminId: string): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
@@ -31,6 +32,10 @@ export interface IStorage {
   createRound(round: InsertRound): Promise<Round>;
   updateRound(id: string, round: Partial<InsertRound>): Promise<Round | undefined>;
   deleteRound(id: string): Promise<void>;
+
+  getRoundRules(roundId: string): Promise<RoundRules | undefined>;
+  createRoundRules(rules: InsertRoundRules): Promise<RoundRules>;
+  updateRoundRules(roundId: string, rules: Partial<InsertRoundRules>): Promise<RoundRules | undefined>;
   
   getQuestionsByRound(roundId: string): Promise<Question[]>;
   getQuestion(id: string): Promise<Question | undefined>;
@@ -95,6 +100,11 @@ export class DatabaseStorage implements IStorage {
 
   async getEvent(id: string): Promise<Event | undefined> {
     const [event] = await db.select().from(events).where(eq(events.id, id));
+    return event;
+  }
+
+  async getEventByName(name: string): Promise<Event | undefined> {
+    const [event] = await db.select().from(events).where(eq(events.name, name));
     return event;
   }
 
@@ -178,6 +188,21 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRound(id: string): Promise<void> {
     await db.delete(rounds).where(eq(rounds.id, id));
+  }
+
+  async getRoundRules(roundId: string): Promise<RoundRules | undefined> {
+    const [rules] = await db.select().from(roundRules).where(eq(roundRules.roundId, roundId));
+    return rules;
+  }
+
+  async createRoundRules(insertRules: InsertRoundRules): Promise<RoundRules> {
+    const [rules] = await db.insert(roundRules).values(insertRules).returning();
+    return rules;
+  }
+
+  async updateRoundRules(roundId: string, updateData: Partial<InsertRoundRules>): Promise<RoundRules | undefined> {
+    const [rules] = await db.update(roundRules).set({ ...updateData, updatedAt: new Date() }).where(eq(roundRules.roundId, roundId)).returning();
+    return rules;
   }
 
   async getQuestionsByRound(roundId: string): Promise<Question[]> {

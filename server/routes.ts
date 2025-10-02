@@ -163,6 +163,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Name, description, and type are required" });
       }
 
+      const existingEvent = await storage.getEventByName(name);
+      if (existingEvent) {
+        return res.status(400).json({ message: "An event with this name already exists" });
+      }
+
       const event = await storage.createEvent({
         name,
         description,
@@ -195,6 +200,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name, description, type, startDate, endDate, status } = req.body;
       
+      if (name !== undefined) {
+        const existingEvent = await storage.getEventByName(name);
+        if (existingEvent && existingEvent.id !== req.params.id) {
+          return res.status(400).json({ message: "An event with this name already exists" });
+        }
+      }
+
       const updateData: any = {};
       if (name !== undefined) updateData.name = name;
       if (description !== undefined) updateData.description = description;
@@ -333,9 +345,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: status || 'upcoming'
       });
 
+      await storage.createRoundRules({
+        roundId: round.id,
+        noRefresh: true,
+        noTabSwitch: true,
+        forceFullscreen: true,
+        disableShortcuts: true,
+        autoSubmitOnViolation: true,
+        maxTabSwitchWarnings: 2,
+        additionalRules: null
+      });
+
       res.status(201).json(round);
     } catch (error) {
       console.error("Create round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/rounds/:roundId/rules", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      let rules = await storage.getRoundRules(req.params.roundId);
+      
+      if (!rules) {
+        const round = await storage.getRound(req.params.roundId);
+        if (!round) {
+          return res.status(404).json({ message: "Round not found" });
+        }
+        
+        rules = await storage.createRoundRules({
+          roundId: req.params.roundId,
+          noRefresh: true,
+          noTabSwitch: true,
+          forceFullscreen: true,
+          disableShortcuts: true,
+          autoSubmitOnViolation: true,
+          maxTabSwitchWarnings: 2,
+          additionalRules: null
+        });
+      }
+      
+      res.json(rules);
+    } catch (error) {
+      console.error("Get round rules error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/rounds/:roundId/rules", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const { noRefresh, noTabSwitch, forceFullscreen, disableShortcuts, autoSubmitOnViolation, maxTabSwitchWarnings, additionalRules } = req.body;
+      
+      const updateData: any = {};
+      if (noRefresh !== undefined) updateData.noRefresh = noRefresh;
+      if (noTabSwitch !== undefined) updateData.noTabSwitch = noTabSwitch;
+      if (forceFullscreen !== undefined) updateData.forceFullscreen = forceFullscreen;
+      if (disableShortcuts !== undefined) updateData.disableShortcuts = disableShortcuts;
+      if (autoSubmitOnViolation !== undefined) updateData.autoSubmitOnViolation = autoSubmitOnViolation;
+      if (maxTabSwitchWarnings !== undefined) updateData.maxTabSwitchWarnings = maxTabSwitchWarnings;
+      if (additionalRules !== undefined) updateData.additionalRules = additionalRules;
+
+      const rules = await storage.updateRoundRules(req.params.roundId, updateData);
+      if (!rules) {
+        return res.status(404).json({ message: "Round rules not found" });
+      }
+
+      res.json(rules);
+    } catch (error) {
+      console.error("Update round rules error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -373,6 +450,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(question);
     } catch (error) {
       console.error("Create question error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/rounds/:roundId/questions/bulk", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const { questions } = req.body;
+      
+      if (!questions || !Array.isArray(questions) || questions.length === 0) {
+        return res.status(400).json({ message: "Questions array is required and must not be empty" });
+      }
+
+      const errors: string[] = [];
+      const createdQuestions = [];
+
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        
+        if (!q.questionText || q.questionNumber === undefined) {
+          errors.push(`Question ${i + 1}: questionText and questionNumber are required`);
+          continue;
+        }
+
+        try {
+          const question = await storage.createQuestion({
+            roundId: req.params.roundId,
+            questionType: q.questionType || 'multiple_choice',
+            questionText: q.questionText,
+            questionNumber: q.questionNumber,
+            points: q.points || 1,
+            options: q.options || null,
+            correctAnswer: q.correctAnswer || null,
+            expectedOutput: q.expectedOutput || null,
+            testCases: q.testCases || null
+          });
+          createdQuestions.push(question);
+        } catch (error: any) {
+          errors.push(`Question ${i + 1}: ${error.message}`);
+        }
+      }
+
+      if (errors.length > 0 && createdQuestions.length === 0) {
+        return res.status(400).json({ message: "Failed to create any questions", errors });
+      }
+
+      res.status(201).json({
+        message: `Successfully created ${createdQuestions.length} questions`,
+        created: createdQuestions.length,
+        errors: errors.length > 0 ? errors : undefined,
+        questions: createdQuestions
+      });
+    } catch (error) {
+      console.error("Bulk create questions error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -727,6 +857,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(report.reportData);
     } catch (error) {
       console.error("Download report error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/backfill-round-rules", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const events = await storage.getEvents();
+      let processedCount = 0;
+      let createdCount = 0;
+      
+      for (const event of events) {
+        const rounds = await storage.getRoundsByEvent(event.id);
+        
+        for (const round of rounds) {
+          processedCount++;
+          const existingRules = await storage.getRoundRules(round.id);
+          
+          if (!existingRules) {
+            await storage.createRoundRules({
+              roundId: round.id,
+              noRefresh: true,
+              noTabSwitch: true,
+              forceFullscreen: true,
+              disableShortcuts: true,
+              autoSubmitOnViolation: true,
+              maxTabSwitchWarnings: 2,
+              additionalRules: null
+            });
+            createdCount++;
+          }
+        }
+      }
+
+      res.json({ 
+        message: "Backfill completed successfully",
+        processedRounds: processedCount,
+        createdRules: createdCount
+      });
+    } catch (error) {
+      console.error("Backfill round rules error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
