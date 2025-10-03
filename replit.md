@@ -10,6 +10,9 @@ A comprehensive React-based web application for managing symposium events with r
 - ✅ Database schema deployed successfully
 - ✅ Application running on port 5000
 - ✅ Deployment configured for autoscale
+- ✅ Comprehensive deployment guides created (Vercel + College Server)
+- ✅ Database structure documentation created
+- ✅ Database seed file ready for use
 - ⚠️ **ACTION REQUIRED:** Set JWT_SECRET in Secrets (see SETUP.md)
 
 ## Tech Stack
@@ -52,12 +55,21 @@ A comprehensive React-based web application for managing symposium events with r
 - Use `npm run db:push --force` if data-loss warning appears
 - Never manually write SQL migrations
 - Database URL provided automatically by Replit
+- Seed file available: `server/seed.ts` (run with `tsx server/seed.ts`)
+- Complete database documentation: `docs/DATABASE_STRUCTURE.md`
 
 ## User Roles
 1. **Super Admin** - Full system control
 2. **Event Admin** - Manages assigned events
 3. **Participant** - Takes tests and views results
 4. **Registration Committee** - Manages registrations
+
+## Deployment Guides
+- **Master Guide**: `DEPLOYMENT_GUIDE.md` - Complete overview and strategy
+- **Vercel Deployment**: `docs/VERCEL_DEPLOYMENT.md` - Cloud deployment with Neon DB
+- **College Server**: `docs/COLLEGE_SERVER_DEPLOYMENT.md` - Local server setup for offline use
+- **Database Reference**: `docs/DATABASE_STRUCTURE.md` - Complete schema documentation
+- **Vercel Config**: `vercel.json` - Ready for Vercel deployment
 
 ## Key Features
 - Role-based access control (RBAC)
