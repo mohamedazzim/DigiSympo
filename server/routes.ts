@@ -685,7 +685,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Round can only be started when status is 'not_started'" });
       }
 
+      // Update round status to in_progress
       const updatedRound = await storage.updateRoundStatus(req.params.roundId, 'in_progress');
+      
+      // Automatically enable test for all participants when starting the round
+      const credentials = await storage.getEventCredentialsByEvent(round.eventId);
+      await Promise.all(
+        credentials.map(cred => 
+          storage.updateEventCredentialTestStatus(cred.id, true, req.user!.id)
+        )
+      );
+
       res.json(updatedRound);
     } catch (error) {
       console.error("Start round error:", error);
@@ -719,8 +729,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Round not found" });
       }
 
+      // Delete all test attempts
       await storage.deleteTestAttemptsByRound(req.params.roundId);
+      
+      // Reset round status
       const updatedRound = await storage.updateRoundStatus(req.params.roundId, 'not_started', null);
+      
+      // Disable test for all participants when restarting
+      const credentials = await storage.getEventCredentialsByEvent(round.eventId);
+      await Promise.all(
+        credentials.map(cred => 
+          storage.updateEventCredentialTestStatus(cred.id, false, req.user!.id)
+        )
+      );
       
       res.json({
         message: "Round restarted successfully",
