@@ -39,6 +39,10 @@ The Symposium Management System is a React-based web application designed for ma
   3. If existing attempt found → Navigate to test page immediately
   4. If no attempt → Create new via POST /api/events/:eventId/rounds/:roundId/start
   5. All errors properly surfaced via toast notifications
+- **BUG FIX: GET Request with Body Error**
+  - ✅ Fixed "Request with GET/HEAD method cannot have body" error in queryClient
+  - ✅ Modified apiRequest() to never include body for GET/HEAD methods regardless of parameters
+  - ✅ Added explicit check: body only included when method is POST/PUT/PATCH/DELETE and data exists
 - **TESTING:** All requirements verified by architect, zero LSP errors, proper error handling confirmed
 
 **October 3, 2025** - Restart Round Feature for Event Admins ✅

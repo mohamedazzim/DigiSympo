@@ -18,10 +18,13 @@ export async function apiRequest(
     ...(token ? { "Authorization": `Bearer ${token}` } : {}),
   };
 
+  // GET and HEAD requests cannot have a body
+  const shouldIncludeBody = method !== 'GET' && method !== 'HEAD' && data;
+
   const res = await fetch(url, {
     method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body: shouldIncludeBody ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 
