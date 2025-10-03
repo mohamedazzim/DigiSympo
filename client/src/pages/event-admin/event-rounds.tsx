@@ -1,11 +1,22 @@
 import { useParams, useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useState } from 'react';
 import EventAdminLayout from '@/components/layouts/EventAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Plus, Edit, FileQuestion, Clock, Play, Square } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ArrowLeft, Plus, Edit, FileQuestion, Clock, Play, Square, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { Round, Event } from '@shared/schema';
@@ -14,6 +25,7 @@ export default function EventRoundsPage() {
   const { eventId } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [restartRoundId, setRestartRoundId] = useState<string | null>(null);
 
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
     queryKey: ['/api/events', eventId],
@@ -62,6 +74,28 @@ export default function EventRoundsPage() {
         description: 'Failed to end round',
         variant: 'destructive',
       });
+    }
+  });
+
+  const restartRoundMutation = useMutation({
+    mutationFn: async (roundId: string) => {
+      return apiRequest('POST', `/api/rounds/${roundId}/restart`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Round Restarted',
+        description: 'Round restarted successfully',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', eventId, 'rounds'] });
+      setRestartRoundId(null);
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to restart round',
+        variant: 'destructive',
+      });
+      setRestartRoundId(null);
     }
   });
 
@@ -195,6 +229,17 @@ export default function EventRoundsPage() {
                             </Button>
                           )}
                           <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRestartRoundId(round.id)}
+                            disabled={restartRoundMutation.isPending}
+                            data-testid={`button-restart-round-${round.id}`}
+                            title="Restart Round"
+                            className="border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                          <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setLocation(`/event-admin/events/${eventId}/rounds/${round.id}/edit`)}
@@ -221,6 +266,27 @@ export default function EventRoundsPage() {
             )}
           </CardContent>
         </Card>
+
+        <AlertDialog open={!!restartRoundId} onOpenChange={(open) => !open && setRestartRoundId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Restart Round?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will reset the round to 'Not Started' and delete ALL participant test attempts. 
+                Participants will be able to retake the test. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => restartRoundId && restartRoundMutation.mutate(restartRoundId)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Restart Round
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </EventAdminLayout>
   );

@@ -712,6 +712,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/rounds/:roundId/restart", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const round = await storage.getRound(req.params.roundId);
+      if (!round) {
+        return res.status(404).json({ message: "Round not found" });
+      }
+
+      await storage.deleteTestAttemptsByRound(req.params.roundId);
+      const updatedRound = await storage.updateRoundStatus(req.params.roundId, 'not_started', null);
+      
+      res.json({
+        message: "Round restarted successfully",
+        round: updatedRound
+      });
+    } catch (error) {
+      console.error("Restart round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/rounds/:roundId/rules", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
     try {
       let rules = await storage.getRoundRules(req.params.roundId);

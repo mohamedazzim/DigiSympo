@@ -59,6 +59,7 @@ export interface IStorage {
   getTestAttemptsByUser(userId: string): Promise<TestAttempt[]>;
   createTestAttempt(attempt: InsertTestAttempt): Promise<TestAttempt>;
   updateTestAttempt(id: string, attempt: Partial<InsertTestAttempt>): Promise<TestAttempt | undefined>;
+  deleteTestAttemptsByRound(roundId: string): Promise<void>;
   
   getAnswersByAttempt(attemptId: string): Promise<Answer[]>;
   createAnswer(answer: InsertAnswer): Promise<Answer>;
@@ -261,13 +262,16 @@ export class DatabaseStorage implements IStorage {
     return round;
   }
 
-  async updateRoundStatus(roundId: string, status: 'not_started' | 'in_progress' | 'completed', timestamp?: Date): Promise<Round | undefined> {
+  async updateRoundStatus(roundId: string, status: 'not_started' | 'in_progress' | 'completed', timestamp?: Date | null): Promise<Round | undefined> {
     const updateData: any = { status, updatedAt: new Date() };
     
     if (status === 'in_progress') {
       updateData.startedAt = timestamp || new Date();
     } else if (status === 'completed') {
       updateData.endedAt = timestamp || new Date();
+    } else if (status === 'not_started') {
+      updateData.startedAt = null;
+      updateData.endedAt = null;
     }
     
     const [round] = await db.update(rounds).set(updateData).where(eq(rounds.id, roundId)).returning();
@@ -387,6 +391,10 @@ export class DatabaseStorage implements IStorage {
   async updateTestAttempt(id: string, updateData: Partial<TestAttempt>): Promise<TestAttempt | undefined> {
     const [attempt] = await db.update(testAttempts).set(updateData).where(eq(testAttempts.id, id)).returning();
     return attempt;
+  }
+
+  async deleteTestAttemptsByRound(roundId: string): Promise<void> {
+    await db.delete(testAttempts).where(eq(testAttempts.roundId, roundId));
   }
 
   async getAnswersByAttempt(attemptId: string): Promise<Answer[]> {
