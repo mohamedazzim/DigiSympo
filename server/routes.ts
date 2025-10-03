@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, requireRegistrationCommittee, requireEventAdminOrSuperAdmin, type AuthRequest } from "./middleware/auth";
+import { emailService } from "./services/emailService";
 
 const JWT_SECRET = process.env.JWT_SECRET || "symposium-secret-key-change-in-production";
 
@@ -1611,6 +1612,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user.id
       );
       
+      for (const eventCred of eventCredentialsList) {
+        await emailService.sendRegistrationApproved(
+          email,
+          fullName,
+          eventCred.eventName,
+          eventCred.eventUsername,
+          eventCred.eventPassword
+        );
+      }
+      
       res.json({
         registration: updated,
         mainCredentials: {
@@ -1683,6 +1694,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eventUsername,
           eventPassword,
         });
+      }
+      
+      for (const eventCred of eventCredentialsList) {
+        await emailService.sendCredentials(
+          email,
+          fullName,
+          eventCred.eventName,
+          eventCred.eventUsername,
+          eventCred.eventPassword
+        );
       }
       
       res.status(201).json({
@@ -3045,6 +3066,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(logs);
     } catch (error) {
       console.error("Get audit logs by target error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // GET /api/email-logs - Retrieve email logs with filters (Super Admin + Event Admin)
+  app.get("/api/email-logs", requireAuth, requireEventAdminOrSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { status, templateType, startDate, endDate } = req.query;
+
+      const filters: any = {};
+      if (status) filters.status = status as string;
+      if (templateType) filters.templateType = templateType as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+
+      const logs = await storage.getEmailLogs(filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Get email logs error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // GET /api/email-logs/recipient/:email - Get email logs for a specific recipient
+  app.get("/api/email-logs/recipient/:email", requireAuth, requireEventAdminOrSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { email } = req.params;
+
+      const logs = await storage.getEmailLogsByRecipient(email);
+      res.json(logs);
+    } catch (error) {
+      console.error("Get email logs by recipient error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

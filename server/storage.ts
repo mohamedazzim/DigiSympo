@@ -1,7 +1,7 @@
 import { eq, and, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import { db } from './db';
-import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports, registrationForms, registrations, eventCredentials, auditLogs } from '@shared/schema';
-import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport, RegistrationForm, InsertRegistrationForm, Registration, InsertRegistration, EventCredential, InsertEventCredential, AuditLog, InsertAuditLog } from '@shared/schema';
+import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports, registrationForms, registrations, eventCredentials, auditLogs, emailLogs } from '@shared/schema';
+import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport, RegistrationForm, InsertRegistrationForm, Registration, InsertRegistration, EventCredential, InsertEventCredential, AuditLog, InsertAuditLog, EmailLog, InsertEmailLog } from '@shared/schema';
 
 export interface IStorage {
   getUsers(): Promise<User[]>;
@@ -107,6 +107,10 @@ export interface IStorage {
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   getAuditLogs(filters?: { adminId?: string; targetType?: string; startDate?: Date; endDate?: Date }): Promise<AuditLog[]>;
   getAuditLogsByTarget(targetType: string, targetId: string): Promise<AuditLog[]>;
+  
+  createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
+  getEmailLogs(filters?: { status?: string; templateType?: string; startDate?: Date; endDate?: Date }): Promise<EmailLog[]>;
+  getEmailLogsByRecipient(email: string): Promise<EmailLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1143,6 +1147,33 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(auditLogs)
       .where(and(eq(auditLogs.targetType, targetType), eq(auditLogs.targetId, targetId)))
       .orderBy(desc(auditLogs.timestamp));
+  }
+
+  async createEmailLog(insertLog: InsertEmailLog): Promise<EmailLog> {
+    const [log] = await db.insert(emailLogs).values(insertLog).returning();
+    return log;
+  }
+
+  async getEmailLogs(filters?: { status?: string; templateType?: string; startDate?: Date; endDate?: Date }): Promise<EmailLog[]> {
+    let query = db.select().from(emailLogs);
+    
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(emailLogs.status, filters.status));
+    if (filters?.templateType) conditions.push(eq(emailLogs.templateType, filters.templateType));
+    if (filters?.startDate) conditions.push(gte(emailLogs.sentAt, filters.startDate));
+    if (filters?.endDate) conditions.push(lte(emailLogs.sentAt, filters.endDate));
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return await query.orderBy(desc(emailLogs.sentAt));
+  }
+
+  async getEmailLogsByRecipient(email: string): Promise<EmailLog[]> {
+    return await db.select().from(emailLogs)
+      .where(eq(emailLogs.recipientEmail, email))
+      .orderBy(desc(emailLogs.sentAt));
   }
 }
 

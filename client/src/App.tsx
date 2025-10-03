@@ -48,6 +48,7 @@ import RegistrationCommitteeRegistrationsPage from "@/pages/registration-committ
 import OnSpotRegistrationPage from "@/pages/registration-committee/on-spot-registration";
 import PublicRegistrationFormPage from "@/pages/public/registration-form";
 import SuperAdminOverridesPage from "@/pages/admin/super-admin-overrides";
+import EmailLogsPage from "@/pages/admin/email-logs";
 
 function ProtectedRoute({ 
   component: Component, 
@@ -155,6 +156,9 @@ function Router() {
       </Route>
       <Route path="/admin/super-admin-overrides">
         <ProtectedRoute component={SuperAdminOverridesPage} allowedRoles={['super_admin']} />
+      </Route>
+      <Route path="/admin/email-logs">
+        <ProtectedRoute component={EmailLogsPage} allowedRoles={['super_admin', 'event_admin']} />
       </Route>
 
       <Route path="/registration-committee/dashboard">

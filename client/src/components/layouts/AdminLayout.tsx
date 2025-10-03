@@ -10,7 +10,8 @@ import {
   LogOut,
   FormInput,
   UserCheck,
-  ShieldAlert
+  ShieldAlert,
+  Mail
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Registration Committee', href: '/admin/registration-committee', icon: UserCheck },
   { name: 'Registrations', href: '/admin/registrations', icon: FileText },
   { name: 'Reports', href: '/admin/reports', icon: FileText },
+  { name: 'Email Logs', href: '/admin/email-logs', icon: Mail },
   { name: 'Super Admin Overrides', href: '/admin/super-admin-overrides', icon: ShieldAlert },
 ];
 

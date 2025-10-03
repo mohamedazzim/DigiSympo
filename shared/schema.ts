@@ -215,6 +215,19 @@ export const auditLogs = pgTable("audit_logs", {
   ipAddress: text("ip_address"),
 });
 
+// Email Logs - track all email notifications sent by the system
+export const emailLogs = pgTable("email_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recipientEmail: text("recipient_email").notNull(),
+  recipientName: text("recipient_name"),
+  subject: text("subject").notNull(),
+  templateType: text("template_type").notNull(),
+  status: text("status").notNull().default('sent'),
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  metadata: jsonb("metadata"),
+});
+
 // Relations
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   admin: one(users, {
@@ -301,6 +314,11 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   timestamp: true,
 });
 
+export const insertEmailLogSchema = createInsertSchema(emailLogs).omit({
+  id: true,
+  sentAt: true,
+});
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -345,3 +363,6 @@ export type InsertEventCredential = z.infer<typeof insertEventCredentialSchema>;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+export type EmailLog = typeof emailLogs.$inferSelect;
+export type InsertEmailLog = z.infer<typeof insertEmailLogSchema>;
