@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Copy, CheckCircle, Trash2, Pencil, UserPlus } from "lucide-react";
+import { Copy, CheckCircle, Trash2, Pencil, UserPlus, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import RegistrationCommitteeLayout from "@/components/layouts/RegistrationCommitteeLayout";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -40,6 +40,8 @@ export default function OnSpotRegistrationPage() {
   const [showCredentials, setShowCredentials] = useState(false);
   const [editingParticipant, setEditingParticipant] = useState<OnSpotParticipant | null>(null);
   const [deletingParticipant, setDeletingParticipant] = useState<OnSpotParticipant | null>(null);
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   const form = useForm<OnSpotFormData>({
     resolver: zodResolver(onSpotFormSchema),
@@ -193,6 +195,80 @@ export default function OnSpotRegistrationPage() {
   const onEditSubmit = (data: { fullName: string; email: string; phone: string }) => {
     if (editingParticipant) {
       updateMutation.mutate({ id: editingParticipant.id, data });
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      setExportingCSV(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/registration-committee/participants/export/csv', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to export CSV');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'participants-credentials.csv';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "CSV exported successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to export CSV",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingCSV(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setExportingPDF(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/registration-committee/participants/export/pdf', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to export PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'participants-credentials.pdf';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "PDF exported successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to export PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingPDF(false);
     }
   };
 
@@ -366,8 +442,31 @@ export default function OnSpotRegistrationPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>On-Spot Registered Participants</CardTitle>
-              <CardDescription>Participants you have registered on-spot</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>On-Spot Registered Participants</CardTitle>
+                  <CardDescription>Participants you have registered on-spot</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleExportCSV}
+                    disabled={exportingCSV || !participants || participants.length === 0}
+                    data-testid="button-export-csv"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {exportingCSV ? 'Exporting...' : 'Export CSV'}
+                  </Button>
+                  <Button
+                    onClick={handleExportPDF}
+                    disabled={exportingPDF || !participants || participants.length === 0}
+                    data-testid="button-export-pdf"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {exportingPDF ? 'Exporting...' : 'Export PDF'}
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -512,42 +611,58 @@ export default function OnSpotRegistrationPage() {
                     <p className="text-sm text-muted-foreground mb-2">
                       These credentials will be visible to event admins for their respective events.
                     </p>
-                    <div className="space-y-2">
-                      {credentials.eventCredentials.map((event) => (
-                        <div key={event.eventId} className="p-3 bg-blue-50 rounded-md" data-testid={`event-cred-${event.eventId}`}>
-                          <p className="font-semibold text-blue-900 mb-1">{event.eventName}</p>
-                          <div className="text-sm space-y-1">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <span className="font-medium">Event Username: </span>
-                                <code className="text-xs">{event.eventUsername}</code>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => copyCredential(event.eventUsername, "Event Username")}
-                                data-testid={`button-copy-event-username-${event.eventId}`}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <span className="font-medium">Event Password: </span>
-                                <code className="text-xs">{event.eventPassword}</code>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => copyCredential(event.eventPassword, "Event Password")}
-                                data-testid={`button-copy-event-password-${event.eventId}`}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="border rounded-md">
+                      <Table data-testid="table-event-credentials">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Event Name</TableHead>
+                            <TableHead>Username</TableHead>
+                            <TableHead>Password</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {credentials.eventCredentials.map((event) => (
+                            <TableRow key={event.eventId} data-testid={`row-event-cred-${event.eventId}`}>
+                              <TableCell className="font-medium" data-testid={`text-event-name-${event.eventId}`}>
+                                {event.eventName}
+                              </TableCell>
+                              <TableCell>
+                                <code className="text-sm bg-gray-100 px-2 py-1 rounded" data-testid={`text-event-username-${event.eventId}`}>
+                                  {event.eventUsername}
+                                </code>
+                              </TableCell>
+                              <TableCell>
+                                <code className="text-sm bg-gray-100 px-2 py-1 rounded" data-testid={`text-event-password-${event.eventId}`}>
+                                  {event.eventPassword}
+                                </code>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex gap-1 justify-end">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => copyCredential(event.eventUsername, `${event.eventName} Username`)}
+                                    data-testid={`button-copy-event-username-${event.eventId}`}
+                                    title="Copy Username"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => copyCredential(event.eventPassword, `${event.eventName} Password`)}
+                                    data-testid={`button-copy-event-password-${event.eventId}`}
+                                    title="Copy Password"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
                 )}

@@ -55,3 +55,68 @@ Key features and their technical implementations include:
 - **Database:** PostgreSQL (specifically Neon for Replit environment)
 - **Object-Relational Mapper (ORM):** Drizzle
 - **Authentication:** JSON Web Tokens (JWT), bcrypt
+- **PDF Generation:** PDFKit
+
+## Recent Changes
+
+### October 3, 2025 - Human-Readable Credential Generation & Export Functionality ✅
+
+**NEW FEATURE: Human-Readable Credential Format**
+- ✅ Replaced random credential generation with meaningful, easy-to-remember format
+- ✅ **Username Format:** `<eventname>-<firstname>-<counter>` 
+  - Example: `coding-mohamed-001`
+  - eventname: Event name lowercased, spaces replaced with hyphens
+  - firstname: First word of participant's full name (lowercased)
+  - counter: 3-digit zero-padded per-event incremental number (001, 002, ..., 999)
+- ✅ **Password Format:** `<shortname><counter>`
+  - Example: `azzim001`
+  - shortname: Last word of full name OR first 5 chars if no space (lowercased)
+  - counter: Same 3-digit number as username
+- ✅ **Examples:**
+  - Mohamed Azzim in Coding → Username: `coding-mohamed-001`, Password: `azzim001`
+  - Sarah Khan in Quiz Competition → Username: `quiz-competition-sarah-002`, Password: `khan002`
+
+**Credential Generation Logic:**
+- ✅ Per-event counter starting at 001 (independent counters per event)
+- ✅ Counter calculated by querying existing event credentials: `COUNT(*) + 1`
+- ✅ Applied to both on-spot registration AND pre-registration approval flows
+- ✅ Backward compatible: Existing participants with random credentials remain functional
+
+**NEW FEATURE: CSV/PDF Export for Credentials**
+- ✅ Added GET /api/registration-committee/participants/export/csv endpoint
+- ✅ Added GET /api/registration-committee/participants/export/pdf endpoint
+- ✅ Both protected with requireAuth + requireRegistrationCommittee middleware
+- ✅ CSV format: Headers → Participant Name, Email, Phone, Event Name, Username, Password
+- ✅ PDF format: Professional table with borders, alternating row colors, landscape A4
+- ✅ Export buttons added to Registration Committee On-Spot Registration page
+- ✅ Secure download handlers using fetch with Bearer token authentication
+- ✅ Loading states and toast notifications for UX feedback
+
+**UI Enhancements:**
+- ✅ Credentials displayed in clean shadcn Table component (Event Name | Username | Password | Actions)
+- ✅ Copy buttons for individual username/password with toast notifications
+- ✅ Export CSV and Export PDF buttons with Download icons
+- ✅ Professional enterprise-grade styling consistent with existing design
+- ✅ All elements have proper data-testid attributes for testing
+
+**Backend Implementation:**
+- ✅ Added `getEventCredentialCountForEvent(eventId)` to storage interface
+- ✅ Created `generateHumanReadableCredentials(fullName, eventName, counter)` helper
+- ✅ Updated on-spot registration credential generation
+- ✅ Updated pre-registration approval credential generation
+- ✅ Installed pdfkit and @types/pdfkit for PDF generation
+
+**Testing Results:**
+- ✅ Credential format validated: `coding-mohamed-051` / `azzim051`
+- ✅ Counter increment verified: 051 → 061 for sequential participants
+- ✅ CSV export: Valid CSV file with proper character escaping
+- ✅ PDF export: Professional PDF document generated successfully
+- ✅ Participant authentication: Login successful with new credentials
+- ✅ Architect approved: Production-ready, no security concerns
+
+**Benefits:**
+- Easy for participants to remember credentials
+- Still unique (per-event incremental ID)
+- Admin can quickly map participant ↔ event credentials
+- Removes confusion from long random strings
+- Professional export capabilities for distribution

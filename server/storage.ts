@@ -102,6 +102,7 @@ export interface IStorage {
   
   getOnSpotParticipantsByCreator(creatorId: string): Promise<Array<User & { eventCredentials: Array<EventCredential & { event: Event }> }>>;
   updateUserDetails(userId: string, updates: { fullName?: string; email?: string; phone?: string }): Promise<User | undefined>;
+  getEventCredentialCountForEvent(eventId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1102,6 +1103,15 @@ export class DatabaseStorage implements IStorage {
 
     const [user] = await db.update(users).set(updateData).where(eq(users.id, userId)).returning();
     return user;
+  }
+
+  async getEventCredentialCountForEvent(eventId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(eventCredentials)
+      .where(eq(eventCredentials.eventId, eventId));
+    
+    return result[0]?.count || 0;
   }
 }
 

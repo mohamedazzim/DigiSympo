@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { nanoid } from "nanoid";
+import PDFDocument from "pdfkit";
 import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, requireRegistrationCommittee, type AuthRequest } from "./middleware/auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "symposium-secret-key-change-in-production";
@@ -20,6 +21,18 @@ function generateFormSlug(eventName: string): string {
 
 function generateSecurePassword(): string {
   return crypto.randomBytes(12).toString('base64').slice(0, 16);
+}
+
+function generateHumanReadableCredentials(fullName: string, eventName: string, counter: number): { username: string; password: string } {
+  const firstName = fullName.split(' ')[0].toLowerCase();
+  const shortName = fullName.split(' ').pop()?.toLowerCase() || fullName.substring(0, 5).toLowerCase();
+  const cleanEventName = eventName.toLowerCase().replace(/\s+/g, '-');
+  const formattedCounter = String(counter).padStart(3, '0');
+  
+  return {
+    username: `${cleanEventName}-${firstName}-${formattedCounter}`,
+    password: `${shortName}${formattedCounter}`
+  };
 }
 
 function timesOverlap(start1: Date | null, end1: Date | null, start2: Date | null, end2: Date | null): boolean {
@@ -1540,9 +1553,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const event = await storage.getEventById(eventId);
         if (!event) continue;
         
-        const firstName = fullName.split(' ')[0].toLowerCase();
-        const eventUsername = `${event.name.toLowerCase().replace(/\s+/g, '-').substring(0, 10)}-${firstName}-${nanoid(4)}`;
-        const eventPassword = generateSecurePassword();
+        const count = await storage.getEventCredentialCountForEvent(eventId);
+        const counter = count + 1;
+        const { username: eventUsername, password: eventPassword } = generateHumanReadableCredentials(fullName, event.name, counter);
         
         await storage.createEventCredential(
           newUser.id,
@@ -1621,9 +1634,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const event = await storage.getEventById(eventId);
         if (!event) continue;
         
-        const firstName = fullName.split(' ')[0].toLowerCase();
-        const eventUsername = `${event.name.toLowerCase().replace(/\s+/g, '-').substring(0, 10)}-${firstName}-${nanoid(4)}`;
-        const eventPassword = generateSecurePassword();
+        const count = await storage.getEventCredentialCountForEvent(eventId);
+        const counter = count + 1;
+        const { username: eventUsername, password: eventPassword } = generateHumanReadableCredentials(fullName, event.name, counter);
         
         await storage.createEventCredential(
           newUser.id,
@@ -1724,6 +1737,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Delete on-spot participant error:", error);
       res.status(500).json({ message: "Failed to delete participant" });
+    }
+  });
+
+  app.get("/api/registration-committee/participants/export/csv", requireAuth, requireRegistrationCommittee, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const participants = await storage.getOnSpotParticipantsByCreator(user.id);
+
+      const csvRows: string[] = [];
+      csvRows.push("Participant Name,Email,Phone,Event Name,Username,Password");
+
+      for (const participant of participants) {
+        const { fullName, email, phone, eventCredentials } = participant;
+        
+        if (eventCredentials && eventCredentials.length > 0) {
+          for (const credential of eventCredentials) {
+            const phoneValue = phone || "";
+            const eventName = credential.event.name;
+            const username = credential.eventUsername;
+            const password = credential.eventPassword;
+            
+            const escapedFullName = `"${fullName.replace(/"/g, '""')}"`;
+            const escapedEmail = `"${email.replace(/"/g, '""')}"`;
+            const escapedPhone = `"${phoneValue.replace(/"/g, '""')}"`;
+            const escapedEventName = `"${eventName.replace(/"/g, '""')}"`;
+            const escapedUsername = `"${username.replace(/"/g, '""')}"`;
+            const escapedPassword = `"${password.replace(/"/g, '""')}"`;
+            
+            csvRows.push(`${escapedFullName},${escapedEmail},${escapedPhone},${escapedEventName},${escapedUsername},${escapedPassword}`);
+          }
+        }
+      }
+
+      const csvContent = csvRows.join("\n");
+      
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="participants-credentials.csv"');
+      res.send(csvContent);
+    } catch (error) {
+      console.error("CSV export error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/registration-committee/participants/export/pdf", requireAuth, requireRegistrationCommittee, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const participants = await storage.getOnSpotParticipantsByCreator(user.id);
+
+      const doc = new PDFDocument({ margin: 50, size: 'A4', layout: 'landscape' });
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="participants-credentials.pdf"');
+      
+      doc.pipe(res);
+
+      doc.fontSize(20).font('Helvetica-Bold').text('Participant Credentials - BootFeet 2K26', { align: 'center' });
+      doc.moveDown(0.5);
+      
+      const generatedDate = new Date().toLocaleString('en-US', { 
+        dateStyle: 'full', 
+        timeStyle: 'short' 
+      });
+      doc.fontSize(10).font('Helvetica').text(`Generated: ${generatedDate}`, { align: 'center' });
+      doc.moveDown(1.5);
+
+      const tableTop = doc.y;
+      const colWidths = [120, 150, 80, 120, 120, 100];
+      const rowHeight = 25;
+      let currentY = tableTop;
+
+      const drawTableHeader = (y: number) => {
+        doc.font('Helvetica-Bold').fontSize(9);
+        
+        doc.rect(50, y, colWidths[0], rowHeight).fillAndStroke('#4A5568', '#000');
+        doc.fillColor('#FFF').text('Participant Name', 55, y + 8, { width: colWidths[0] - 10 });
+        
+        let xPos = 50 + colWidths[0];
+        doc.rect(xPos, y, colWidths[1], rowHeight).fillAndStroke('#4A5568', '#000');
+        doc.fillColor('#FFF').text('Email', xPos + 5, y + 8, { width: colWidths[1] - 10 });
+        
+        xPos += colWidths[1];
+        doc.rect(xPos, y, colWidths[2], rowHeight).fillAndStroke('#4A5568', '#000');
+        doc.fillColor('#FFF').text('Phone', xPos + 5, y + 8, { width: colWidths[2] - 10 });
+        
+        xPos += colWidths[2];
+        doc.rect(xPos, y, colWidths[3], rowHeight).fillAndStroke('#4A5568', '#000');
+        doc.fillColor('#FFF').text('Event', xPos + 5, y + 8, { width: colWidths[3] - 10 });
+        
+        xPos += colWidths[3];
+        doc.rect(xPos, y, colWidths[4], rowHeight).fillAndStroke('#4A5568', '#000');
+        doc.fillColor('#FFF').text('Username', xPos + 5, y + 8, { width: colWidths[4] - 10 });
+        
+        xPos += colWidths[4];
+        doc.rect(xPos, y, colWidths[5], rowHeight).fillAndStroke('#4A5568', '#000');
+        doc.fillColor('#FFF').text('Password', xPos + 5, y + 8, { width: colWidths[5] - 10 });
+        
+        return y + rowHeight;
+      };
+
+      currentY = drawTableHeader(currentY);
+
+      doc.font('Helvetica').fontSize(8);
+      let rowIndex = 0;
+
+      for (const participant of participants) {
+        const { fullName, email, phone, eventCredentials } = participant;
+        
+        if (eventCredentials && eventCredentials.length > 0) {
+          for (const credential of eventCredentials) {
+            if (currentY > 500) {
+              doc.addPage({ margin: 50, size: 'A4', layout: 'landscape' });
+              currentY = 50;
+              currentY = drawTableHeader(currentY);
+              rowIndex = 0;
+            }
+
+            const bgColor = rowIndex % 2 === 0 ? '#F7FAFC' : '#FFFFFF';
+            
+            doc.rect(50, currentY, colWidths[0], rowHeight).fillAndStroke(bgColor, '#000');
+            doc.fillColor('#000').text(fullName, 55, currentY + 8, { width: colWidths[0] - 10, ellipsis: true });
+            
+            let xPos = 50 + colWidths[0];
+            doc.rect(xPos, currentY, colWidths[1], rowHeight).fillAndStroke(bgColor, '#000');
+            doc.fillColor('#000').text(email, xPos + 5, currentY + 8, { width: colWidths[1] - 10, ellipsis: true });
+            
+            xPos += colWidths[1];
+            doc.rect(xPos, currentY, colWidths[2], rowHeight).fillAndStroke(bgColor, '#000');
+            doc.fillColor('#000').text(phone || '', xPos + 5, currentY + 8, { width: colWidths[2] - 10, ellipsis: true });
+            
+            xPos += colWidths[2];
+            doc.rect(xPos, currentY, colWidths[3], rowHeight).fillAndStroke(bgColor, '#000');
+            doc.fillColor('#000').text(credential.event.name, xPos + 5, currentY + 8, { width: colWidths[3] - 10, ellipsis: true });
+            
+            xPos += colWidths[3];
+            doc.rect(xPos, currentY, colWidths[4], rowHeight).fillAndStroke(bgColor, '#000');
+            doc.fillColor('#000').text(credential.eventUsername, xPos + 5, currentY + 8, { width: colWidths[4] - 10, ellipsis: true });
+            
+            xPos += colWidths[4];
+            doc.rect(xPos, currentY, colWidths[5], rowHeight).fillAndStroke(bgColor, '#000');
+            doc.fillColor('#000').text(credential.eventPassword, xPos + 5, currentY + 8, { width: colWidths[5] - 10, ellipsis: true });
+            
+            currentY += rowHeight;
+            rowIndex++;
+          }
+        }
+      }
+
+      doc.end();
+    } catch (error) {
+      console.error("PDF export error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
