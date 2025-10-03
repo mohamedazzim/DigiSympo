@@ -17,6 +17,43 @@ The Symposium Management System is a React-based web application designed for ma
   - Enterprise-grade, minimal UI with real-time live results capability
 
 ## Recent Changes
+**October 3, 2025** - Rounds Management System Redesign - Real-Time Status Sync ✅
+- **MAJOR SYSTEM REDESIGN:**
+  - ✅ Completely redesigned rounds lifecycle to eliminate start time confusion
+  - ✅ Implemented strict 3-state lifecycle: not_started → in_progress → completed
+  - ✅ Added real-time status synchronization between admin and participant views
+  - ✅ Removed misleading auto-generated start time from UI display
+- **DATABASE SCHEMA UPDATES:**
+  - ✅ Added startedAt timestamp field (tracks when admin starts round)
+  - ✅ Added endedAt timestamp field (tracks when admin ends round)
+  - ✅ Changed status default from 'upcoming' to 'not_started'
+  - ✅ Status values: 'not_started', 'in_progress', 'completed'
+- **BACKEND API IMPLEMENTATION:**
+  - ✅ Created POST /api/rounds/:id/start endpoint (validates status, sets in_progress + startedAt)
+  - ✅ Created POST /api/rounds/:id/end endpoint (validates status, sets completed + endedAt)
+  - ✅ Added updateRoundStatus() method to storage layer
+  - ✅ Enforced strict status transition validation
+- **EVENT ADMIN UI UPDATES:**
+  - ✅ Removed startTime column from rounds table
+  - ✅ Updated status badges: Not Started (gray), In Progress (blue), Completed (green)
+  - ✅ Conditional button visibility based on round status
+  - ✅ "Start Round" button only visible when status = 'not_started'
+  - ✅ "End Round" button only visible when status = 'in_progress'
+  - ✅ No control buttons when status = 'completed'
+- **PARTICIPANT UI - REAL-TIME SYNC:**
+  - ✅ Implemented 5-second polling on all participant pages
+  - ✅ Dashboard: Updated active round filter to 'in_progress'
+  - ✅ Event Details: Conditional button states (disabled/enabled/completed)
+  - ✅ Take Test: Real-time monitoring with auto-submit on round completion
+  - ✅ Test automatically submits when admin ends round (2-second delay with notification)
+- **KEY FEATURES:**
+  - Action-based control instead of generic status updates
+  - Real-time synchronization via 5-second polling
+  - Auto-submit protection for active tests
+  - Clear UI states with intuitive button visibility
+  - Timestamp tracking for actual execution times
+- **TESTING:** All requirements verified by architect, no regressions, zero LSP errors
+
 **October 3, 2025** - Event Admin Dashboard Redesign - Single-Event Focus ✅
 - **COMPLETE DASHBOARD REDESIGN:**
   - ✅ Redesigned Event Admin Dashboard for single-event ownership model
