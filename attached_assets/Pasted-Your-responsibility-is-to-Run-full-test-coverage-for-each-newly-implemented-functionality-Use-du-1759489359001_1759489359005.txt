@@ -1,0 +1,96 @@
+Your responsibility is to:
+
+Run full test coverage for each newly implemented functionality.
+
+Use dummy data (fake events, participants, rounds, questions) to simulate realistic workflows.
+
+If errors/bugs occur: self-debug, fix the code, rerun tests until all pass.
+
+Only after confirming tests pass → proceed to the next pending feature phase automatically.
+
+✅ Phase Testing Plan
+PHASE 1 – Enhanced Report Generation (Completed)
+
+Test Goals:
+
+Export event report in Excel (4-sheet workbook) → Validate all sheets exist (Overview, Rounds, Participants, Leaderboard).
+
+Export event report in PDF → Check formatting, branding, tables & charts present.
+
+Export symposium-wide consolidated report in Excel + PDF.
+
+Role-based access: Event Admin only sees their event; Super Admin sees all.
+
+If any export fails or file corrupt → auto-fix generation logic.
+
+PHASE 2 – Super Admin Override Capabilities (Completed)
+
+Test Goals:
+
+Update event → confirm database change + audit log entry.
+
+Delete question → confirm removal + audit log captures before/after state.
+
+Override round settings → validate new timings propagate.
+
+View audit logs → check filters, pagination, CSV export works.
+
+Verify IP tracking and reason tracking captured correctly.
+
+If audit log missing, RBAC fails, or override doesn’t apply → auto-fix backend + frontend.
+
+PHASE 3 – Email Notifications (Pending)
+
+Implementation & Test Goals:
+
+Install and configure nodemailer (or suitable email service).
+
+Build HTML templates for:
+
+Registration approval/rejection
+
+Credential distribution
+
+Test start reminders
+
+Round status change
+
+Result publication
+
+Certificate availability
+
+Create backend email service with retry + logging.
+
+Create email log schema in DB.
+
+Build Email Log Dashboard for Admins (with filters + resend option).
+
+Integrate notifications into flows: registration, test start, result publish.
+
+Test with dummy emails (use mailtrap / local dev SMTP).
+
+If emails not sent/logged, templates malformed, or retries fail → auto-fix.
+
+⚙️ General Rules
+
+After finishing each phase, print a PASS/FAIL summary.
+
+If FAIL → stop progression, fix automatically, rerun until PASS.
+
+If PASS → proceed to the next phase automatically.
+
+All fixes must maintain code quality, LSP-clean, and production readiness.
+
+Never leave untested code.
+
+Always simulate realistic dummy data flows.
+
+🔄 Execution Flow
+
+Start with PHASE 1 (Reports) tests → auto-fix until pass.
+
+Continue to PHASE 2 (Overrides) tests → auto-fix until pass.
+
+Implement PHASE 3 (Email Notifications) → build, test, auto-fix until pass.
+
+End only when all 3 phases pass successfully with full functionality verified.
