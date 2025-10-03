@@ -1,0 +1,125 @@
+Overview
+
+Each Event Admin is assigned to one specific event only.
+Their dashboard should not show multi-event summaries (like My Events, Active Events, Recent Activity, Quick Actions).
+Instead, the dashboard must focus only on that event’s management, participants, and test control.
+
+🎯 Goals
+
+Simplify Event Admin Dashboard for single-event ownership.
+
+Provide tools to manage participants, configure test, enable test, view results, and leaderboard.
+
+Ensure real-time live results and enterprise-grade UI for both admins and participants.
+
+👤 Event Admin Dashboard (Landing Page)
+
+When an Event Admin logs in, show only:
+
+Event Name (the assigned event).
+
+Total Participants Count (for that event).
+
+Manage Settings button → opens event configurations (rules, round settings).
+
+Test Control button → opens test enable/disable & results management.
+
+🚫 Remove:
+
+My Events
+
+Active Events
+
+Recent Activity
+
+Quick Actions
+
+🧑‍🎓 Participant Test Flow
+
+Test Access Controlled by Event Admin
+
+By default → test is disabled.
+
+When enabled → all registered participants for this event get test access when event admin clicks enable test.
+
+During Test
+
+Fullscreen enforced.
+
+Disable tab switching, refreshing, or shortcuts.
+
+Timer runs for total duration of the round.
+
+On submission or timer expiry → test ends automatically.
+
+After Test
+
+Participant sees a Results button.
+
+Inside Results:
+
+Their submitted answer sheet (same question/answer form).
+
+Correct vs wrong answers.
+
+Score breakdown.
+
+Leaderboard access.
+
+📊 Event Admin Test Control
+
+From the dashboard, clicking Test Control opens:
+
+Enable/Disable Test Button (toggle test status).
+
+Live Results View:
+
+See submissions as they come in.
+
+Monitor participant scores in real-time.
+
+Leaderboard View:
+
+Ranks participants by score.
+
+Tie-breaker = earliest submission time.
+
+📈 Leaderboard
+
+For Admin: real-time, updating live during the event.
+
+For Participants: visible only after their submission or timer expiry.
+
+Fields shown:
+
+Rank
+
+Name
+
+Score
+
+Time Taken
+
+🔧 Backend Requirements
+
+API to fetch single assigned event for an Event Admin.
+
+API to get participant count & details.
+
+API to enable/disable test per event.
+
+API for participants to fetch test status.
+
+API to submit answers.
+
+API to auto-evaluate answers against key & generate score.
+
+API for live leaderboard (admin & participant).
+
+🎨 UI Notes
+
+Minimal, professional, enterprise-grade design.
+
+Dashboard should feel event-centric, not system-wide.
+
+Consistent styling with existing Symposium app.

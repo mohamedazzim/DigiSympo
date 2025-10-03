@@ -8,6 +8,13 @@ The Symposium Management System is a React-based web application designed for ma
 - Using PostgreSQL instead of MongoDB (already configured)
 - Building in phases as outlined in the PRD
 - Strict proctoring features required (fullscreen, no tab switching, no refresh)
+- **NEW REQUIREMENT: Single-Event Event Admin Dashboard**
+  - Each Event Admin is assigned to ONE specific event only
+  - Dashboard must show ONLY their assigned event data (not multi-event summaries)
+  - Remove: My Events, Active Events, Recent Activity, Quick Actions sections
+  - Show: Event Name, Total Participants Count, Manage Settings button, Test Control button
+  - Event-centric design: All features focus on managing that single event
+  - Enterprise-grade, minimal UI with real-time live results capability
 
 ## System Architecture
 
