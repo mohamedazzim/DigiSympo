@@ -81,6 +81,18 @@ export function requireParticipant(req: AuthRequest, res: Response, next: NextFu
   next();
 }
 
+export function requireRegistrationCommittee(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+
+  if (req.user.role !== "registration_committee" && req.user.role !== "super_admin") {
+    return res.status(403).json({ message: "Registration Committee access required" });
+  }
+
+  next();
+}
+
 export async function requireEventAccess(req: AuthRequest, res: Response, next: NextFunction) {
   if (!req.user) {
     return res.status(401).json({ message: "Authentication required" });
@@ -101,6 +113,16 @@ export async function requireEventAccess(req: AuthRequest, res: Response, next: 
     
     if (!isAssigned) {
       return res.status(403).json({ message: "You are not assigned to this event" });
+    }
+    
+    return next();
+  }
+
+  if (req.user.role === "participant") {
+    const participant = await storage.getParticipantByUserAndEvent(req.user.id, eventId);
+    
+    if (!participant) {
+      return res.status(403).json({ message: "You are not registered for this event" });
     }
     
     return next();

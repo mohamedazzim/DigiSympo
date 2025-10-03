@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { nanoid } from "nanoid";
-import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, type AuthRequest } from "./middleware/auth";
+import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, requireRegistrationCommittee, type AuthRequest } from "./middleware/auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "symposium-secret-key-change-in-production";
 
@@ -71,7 +71,7 @@ async function validateEventSelection(eventIds: string[]): Promise<{ valid: bool
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  app.get("/api/users", requireAuth, async (req: AuthRequest, res: Response) => {
+  app.get("/api/users", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
     try {
       const users = await storage.getUsers();
       const usersWithoutPasswords = users.map(({ password, ...user }) => user);
@@ -613,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/events/:eventId/rounds", requireAuth, requireEventAccess, async (req: AuthRequest, res: Response) => {
+  app.post("/api/events/:eventId/rounds", requireAuth, requireEventAdmin, requireEventAccess, async (req: AuthRequest, res: Response) => {
     try {
       const { name, description, roundNumber, duration, startTime, endTime, status } = req.body;
       
@@ -650,7 +650,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/rounds/:roundId", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+  app.get("/api/rounds/:roundId", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const round = await storage.getRound(req.params.roundId);
+      if (!round) {
+        return res.status(404).json({ message: "Round not found" });
+      }
+      res.json(round);
+    } catch (error) {
+      console.error("Get round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/rounds/:roundId", requireAuth, requireEventAdmin, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      await storage.deleteRound(req.params.roundId);
+      res.json({ message: "Round deleted successfully" });
+    } catch (error) {
+      console.error("Delete round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/rounds/:roundId", requireAuth, requireEventAdmin, requireRoundAccess, async (req: AuthRequest, res: Response) => {
     try {
       const { name, description, roundNumber, duration, startTime, endTime, status } = req.body;
       
@@ -675,7 +698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/rounds/:roundId/start", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+  app.post("/api/rounds/:roundId/start", requireAuth, requireEventAdmin, requireRoundAccess, async (req: AuthRequest, res: Response) => {
     try {
       const round = await storage.getRound(req.params.roundId);
       if (!round) {
@@ -704,7 +727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/rounds/:roundId/end", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+  app.post("/api/rounds/:roundId/end", requireAuth, requireEventAdmin, requireRoundAccess, async (req: AuthRequest, res: Response) => {
     try {
       const round = await storage.getRound(req.params.roundId);
       if (!round) {
@@ -723,7 +746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/rounds/:roundId/restart", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+  app.post("/api/rounds/:roundId/restart", requireAuth, requireEventAdmin, requireRoundAccess, async (req: AuthRequest, res: Response) => {
     try {
       const round = await storage.getRound(req.params.roundId);
       if (!round) {
@@ -783,7 +806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/rounds/:roundId/rules", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+  app.patch("/api/rounds/:roundId/rules", requireAuth, requireEventAdmin, requireRoundAccess, async (req: AuthRequest, res: Response) => {
     try {
       const { noRefresh, noTabSwitch, forceFullscreen, disableShortcuts, autoSubmitOnViolation, maxTabSwitchWarnings, additionalRules } = req.body;
       
@@ -818,7 +841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/rounds/:roundId/questions", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+  app.post("/api/rounds/:roundId/questions", requireAuth, requireEventAdmin, requireRoundAccess, async (req: AuthRequest, res: Response) => {
     try {
       const { questionType, questionText, questionNumber, points, options, correctAnswer, expectedOutput, testCases } = req.body;
       
@@ -845,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/rounds/:roundId/questions/bulk", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+  app.post("/api/rounds/:roundId/questions/bulk", requireAuth, requireEventAdmin, requireRoundAccess, async (req: AuthRequest, res: Response) => {
     try {
       const { questions } = req.body;
       
@@ -1555,6 +1578,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Approve registration error:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/registration-committee/participants", requireAuth, requireRegistrationCommittee, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const { fullName, email, phone, selectedEvents } = req.body;
+      
+      if (!fullName || !email || !selectedEvents || selectedEvents.length === 0) {
+        return res.status(400).json({ message: "Full name, email, and at least one event are required" });
+      }
+
+      const validation = await validateEventSelection(selectedEvents);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.error });
+      }
+
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+
+      const password = generateSecurePassword();
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      const newUser = await storage.createUser({
+        username: `DISABLED_${nanoid(16)}`,
+        password: hashedPassword,
+        email: email,
+        fullName: fullName,
+        phone: phone || null,
+        role: 'participant',
+        createdBy: user.id,
+      });
+      
+      const eventCredentialsList = [];
+      
+      for (const eventId of selectedEvents) {
+        await storage.createParticipant(newUser.id, eventId);
+        
+        const event = await storage.getEventById(eventId);
+        if (!event) continue;
+        
+        const firstName = fullName.split(' ')[0].toLowerCase();
+        const eventUsername = `${event.name.toLowerCase().replace(/\s+/g, '-').substring(0, 10)}-${firstName}-${nanoid(4)}`;
+        const eventPassword = generateSecurePassword();
+        
+        await storage.createEventCredential(
+          newUser.id,
+          eventId,
+          eventUsername,
+          eventPassword
+        );
+        
+        eventCredentialsList.push({
+          eventId,
+          eventName: event.name,
+          eventUsername,
+          eventPassword,
+        });
+      }
+      
+      res.status(201).json({
+        participant: {
+          id: newUser.id,
+          fullName: newUser.fullName,
+          email: newUser.email,
+          phone: newUser.phone,
+        },
+        mainCredentials: {
+          username: newUser.username,
+          password: password,
+          email: newUser.email,
+        },
+        eventCredentials: eventCredentialsList,
+      });
+    } catch (error) {
+      console.error("Create on-spot participant error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/registration-committee/participants", requireAuth, requireRegistrationCommittee, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const participants = await storage.getOnSpotParticipantsByCreator(user.id);
+      res.json(participants);
+    } catch (error) {
+      console.error("Get on-spot participants error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/registration-committee/participants/:id", requireAuth, requireRegistrationCommittee, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      const { fullName, email, phone } = req.body;
+      
+      const participant = await storage.getUser(req.params.id);
+      if (!participant) {
+        return res.status(404).json({ message: "Participant not found" });
+      }
+
+      if (participant.createdBy !== user.id) {
+        return res.status(403).json({ message: "You can only edit participants you created" });
+      }
+
+      const updates: any = {};
+      if (fullName !== undefined) updates.fullName = fullName;
+      if (email !== undefined) updates.email = email;
+      if (phone !== undefined) updates.phone = phone;
+
+      const updatedUser = await storage.updateUserDetails(req.params.id, updates);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Participant not found" });
+      }
+
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      console.error("Update on-spot participant error:", error);
+      if (error.message === "Email already exists") {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/registration-committee/participants/:id", requireAuth, requireRegistrationCommittee, async (req: AuthRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      
+      const participant = await storage.getUser(req.params.id);
+      if (!participant) {
+        return res.status(404).json({ message: "Participant not found" });
+      }
+
+      if (participant.createdBy !== user.id) {
+        return res.status(403).json({ message: "You can only delete participants you created" });
+      }
+
+      await storage.deleteUser(req.params.id);
+      res.json({ message: "Participant deleted successfully" });
+    } catch (error) {
+      console.error("Delete on-spot participant error:", error);
+      res.status(500).json({ message: "Failed to delete participant" });
     }
   });
 

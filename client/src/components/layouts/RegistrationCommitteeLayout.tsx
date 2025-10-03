@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ClipboardList, Home, LogOut } from "lucide-react";
+import { ClipboardList, Home, LogOut, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 
@@ -39,6 +39,17 @@ export default function RegistrationCommitteeLayout({ children }: { children: Re
             >
               <ClipboardList className="mr-2 h-4 w-4" />
               Registrations
+            </Button>
+          </Link>
+
+          <Link href="/registration-committee/on-spot-registration">
+            <Button
+              variant={isActive("/registration-committee/on-spot-registration") ? "default" : "ghost"}
+              className="w-full justify-start"
+              data-testid="link-on-spot-registration"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              On-Spot Registration
             </Button>
           </Link>
         </nav>

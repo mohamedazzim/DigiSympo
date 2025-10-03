@@ -99,6 +99,7 @@ export default function EventRoundsPage() {
   const { data: rounds, isLoading: roundsLoading } = useQuery<Round[]>({
     queryKey: ['/api/events', eventId, 'rounds'],
     enabled: !!eventId,
+    refetchInterval: 5000,
   });
 
   const startRoundMutation = useMutation({

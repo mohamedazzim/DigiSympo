@@ -99,6 +99,9 @@ export interface IStorage {
   isUserEventAdmin(userId: string, eventId: string): Promise<boolean>;
   getEventById(eventId: string): Promise<Event | undefined>;
   getParticipantCredentialWithDetails(userId: string, eventId: string): Promise<any>;
+  
+  getOnSpotParticipantsByCreator(creatorId: string): Promise<Array<User & { eventCredentials: Array<EventCredential & { event: Event }> }>>;
+  updateUserDetails(userId: string, updates: { fullName?: string; email?: string; phone?: string }): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1048,6 +1051,57 @@ export class DatabaseStorage implements IStorage {
       eventRules,
       activeRoundRules
     };
+  }
+
+  async getOnSpotParticipantsByCreator(creatorId: string): Promise<Array<User & { eventCredentials: Array<EventCredential & { event: Event }> }>> {
+    const participantUsers = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.createdBy, creatorId), eq(users.role, 'participant')))
+      .orderBy(desc(users.createdAt));
+
+    const result = await Promise.all(participantUsers.map(async (user) => {
+      const credentials = await db
+        .select({
+          id: eventCredentials.id,
+          participantUserId: eventCredentials.participantUserId,
+          eventId: eventCredentials.eventId,
+          eventUsername: eventCredentials.eventUsername,
+          eventPassword: eventCredentials.eventPassword,
+          testEnabled: eventCredentials.testEnabled,
+          enabledAt: eventCredentials.enabledAt,
+          enabledBy: eventCredentials.enabledBy,
+          createdAt: eventCredentials.createdAt,
+          event: events,
+        })
+        .from(eventCredentials)
+        .innerJoin(events, eq(eventCredentials.eventId, events.id))
+        .where(eq(eventCredentials.participantUserId, user.id));
+
+      return {
+        ...user,
+        eventCredentials: credentials as any,
+      };
+    }));
+
+    return result;
+  }
+
+  async updateUserDetails(userId: string, updates: { fullName?: string; email?: string; phone?: string }): Promise<User | undefined> {
+    if (updates.email) {
+      const existingUser = await this.getUserByEmail(updates.email);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('Email already exists');
+      }
+    }
+
+    const updateData: any = {};
+    if (updates.fullName !== undefined) updateData.fullName = updates.fullName;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.phone !== undefined) updateData.phone = updates.phone;
+
+    const [user] = await db.update(users).set(updateData).where(eq(users.id, userId)).returning();
+    return user;
   }
 }
 

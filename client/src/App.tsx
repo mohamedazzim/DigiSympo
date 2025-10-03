@@ -44,6 +44,7 @@ import RegistrationCommitteePage from "@/pages/admin/registration-committee";
 import RegistrationCommitteeCreatePage from "@/pages/admin/registration-committee-create";
 import RegistrationCommitteeDashboard from "@/pages/registration-committee/dashboard";
 import RegistrationCommitteeRegistrationsPage from "@/pages/registration-committee/registrations";
+import OnSpotRegistrationPage from "@/pages/registration-committee/on-spot-registration";
 import PublicRegistrationFormPage from "@/pages/public/registration-form";
 
 function ProtectedRoute({ 
@@ -156,6 +157,9 @@ function Router() {
       </Route>
       <Route path="/registration-committee/registrations">
         <ProtectedRoute component={RegistrationCommitteeRegistrationsPage} allowedRoles={['registration_committee']} />
+      </Route>
+      <Route path="/registration-committee/on-spot-registration">
+        <ProtectedRoute component={OnSpotRegistrationPage} allowedRoles={['registration_committee']} />
       </Route>
 
       <Route path="/event-admin/dashboard">

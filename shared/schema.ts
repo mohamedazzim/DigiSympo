@@ -10,7 +10,9 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
   fullName: text("full_name").notNull(),
+  phone: text("phone"),
   role: varchar("role", { enum: ['super_admin', 'event_admin', 'participant', 'registration_committee'] }).notNull(),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
