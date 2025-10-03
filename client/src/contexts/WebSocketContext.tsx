@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
 
 interface WebSocketContextType {
   isConnected: boolean;
@@ -16,10 +17,17 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const { toast } = useToast();
+  const { user, token } = useAuth();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token || !user) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        setIsConnected(false);
+      }
+      return;
+    }
 
     const socket = io(window.location.origin, {
       auth: { token },
@@ -76,7 +84,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.disconnect();
     };
-  }, [toast]);
+  }, [toast, user, token]);
 
   return (
     <WebSocketContext.Provider value={{ isConnected, socket: socketRef.current }}>
