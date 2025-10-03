@@ -59,6 +59,64 @@ Key features and their technical implementations include:
 
 ## Recent Changes
 
+### October 3, 2025 - Enhanced Report Generation & Super Admin Override Capabilities ✅
+
+**PHASE 1: ENHANCED REPORT GENERATION**
+- ✅ Implemented 4 comprehensive export endpoints (event/symposium in Excel/PDF formats)
+- ✅ **Excel Reports:** Multi-sheet workbooks with professional formatting
+  - Event Reports (4 sheets): Event Overview, Round Details, Participant Scores, Leaderboard
+  - Symposium Reports (3 sheets): Symposium Overview, Event Summaries, Top Performers
+  - Auto-sized columns, bold headers, border styling
+- ✅ **PDF Reports:** Professional A4 landscape documents with tables and borders
+  - Event PDFs: Overview table, round details, participant scores with rankings
+  - Symposium PDFs: Overview, event summaries, top 10 performers across all events
+  - Alternating row colors, proper text alignment
+- ✅ **Frontend Reports Page:** Tabbed interface (Event Reports / Symposium Reports)
+  - Event reports: Dropdown to select specific event, export buttons for Excel/PDF
+  - Symposium reports: Single-click export for comprehensive overview
+  - Loading states, toast notifications, proper error handling
+- ✅ **Access Control:** Event reports accessible to Event Admin (event-specific) and Super Admin (all events); Symposium reports Super Admin only
+- ✅ **Route:** `/reports` with navigation link in AdminLayout
+- ✅ **Architect Approved:** Production-ready with proper RBAC, professional UI, comprehensive data exports
+
+**PHASE 2: SUPER ADMIN OVERRIDE CAPABILITIES WITH AUDIT TRAIL**
+- ✅ Created comprehensive audit logging system with `audit_logs` table (11 columns)
+- ✅ **Audit Schema Fields:** 
+  - adminId, adminUsername, action, targetType, targetId, targetName
+  - changes (jsonb for before/after state), reason, timestamp, ipAddress
+- ✅ **Storage Methods:** createAuditLog, getAuditLogs (with filters), getAuditLogsByTarget
+- ✅ **Override API Endpoints:** 7 total endpoints with full audit logging
+  1. PUT /api/super-admin/events/:eventId/override - Update any event
+  2. DELETE /api/super-admin/events/:eventId/override - Delete any event
+  3. PUT /api/super-admin/questions/:questionId/override - Update any question
+  4. DELETE /api/super-admin/questions/:questionId/override - Delete any question
+  5. PUT /api/super-admin/rounds/:roundId/override - Override round settings
+  6. GET /api/super-admin/audit-logs - Retrieve logs with filters
+  7. GET /api/super-admin/audit-logs/target/:targetType/:targetId - Get history for specific resource
+- ✅ **Audit Features:** Before/after state capture, optional reason field, IP address tracking, timestamp logging
+- ✅ **Super Admin Override Dashboard:** Professional tabbed UI (`/admin/super-admin-overrides`)
+  - **Events Tab:** Table with edit/delete, confirmation dialogs, reason input
+  - **Questions Tab:** Event/round filtering, edit/delete with validation
+  - **Audit Logs Tab:** Comprehensive log viewer with filters (admin, type, date range), pagination (50/page), view changes dialog, CSV export
+- ✅ **Security:** All endpoints protected with requireAuth + requireSuperAdmin middleware
+- ✅ **UI Quality:** Professional shadcn components, data-testid attributes, loading states, error handling
+- ✅ **Database Migration:** Successfully applied via `npm run db:push --force`
+- ✅ **Architect Approved:** Production-ready, no security concerns, full CRUD with audit trail
+
+**Technical Implementations:**
+- ✅ Helper functions: `logSuperAdminAction()` for centralized audit logging, `getClientIp()` for IP extraction
+- ✅ Professional Excel generation using exceljs library with multi-sheet support
+- ✅ PDF generation using pdfkit with tables, borders, and professional styling
+- ✅ React Query for data fetching with proper cache invalidation
+- ✅ Navigation links added to AdminLayout for both features
+
+**Benefits:**
+- Comprehensive reporting for events and symposium-wide analysis
+- Full administrative control with complete audit trail for compliance
+- Accountability through reason tracking and IP logging
+- Professional export capabilities for stakeholders
+- Enhanced security and transparency for administrative actions
+
 ### October 3, 2025 - Human-Readable Credential Generation & Export Functionality ✅
 
 **NEW FEATURE: Human-Readable Credential Format**
