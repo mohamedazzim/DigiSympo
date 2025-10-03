@@ -2,17 +2,33 @@ export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
+  globals: {
+    'ts-jest': {
+      useESM: true,
+    },
+  },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@shared/(.*)$': '<rootDir>/shared/$1',
+    '^@/(.*)$': '<rootDir>/client/src/$1',
+    '^@lib/(.*)$': '<rootDir>/client/src/lib/$1',
+    '^@assets/(.*)$': '<rootDir>/attached_assets/$1',
+    '^nanoid$': '<rootDir>/tests/mocks/nanoid.js',
   },
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
       {
         useESM: true,
+        isolatedModules: true,
+        tsconfig: {
+          skipLibCheck: true,
+          skipDefaultLibCheck: true,
+        },
       },
     ],
   },
+  transformIgnorePatterns: [],
   testMatch: [
     '**/tests/**/*.test.ts',
     '**/tests/**/*.spec.ts'

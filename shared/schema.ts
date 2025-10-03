@@ -12,7 +12,7 @@ export const users: any = pgTable("users", {
   fullName: text("full_name").notNull(),
   phone: text("phone"),
   role: varchar("role", { enum: ['super_admin', 'event_admin', 'participant', 'registration_committee'] }).notNull(),
-  createdBy: varchar("created_by").references((): any => users.id, { onDelete: 'set null' }),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
