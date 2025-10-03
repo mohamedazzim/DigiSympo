@@ -17,6 +17,30 @@ The Symposium Management System is a React-based web application designed for ma
   - Enterprise-grade, minimal UI with real-time live results capability
 
 ## Recent Changes
+**October 3, 2025** - Restart Round Feature for Event Admins ✅
+- **NEW FEATURE: Restart Round Functionality**
+  - ✅ Event Admins can now restart any round from the Rounds Management page
+  - ✅ Restart button available in Actions column for all rounds (orange/warning color)
+  - ✅ Confirmation dialog prevents accidental restarts with clear warning message
+  - ✅ Restarting a round deletes ALL participant test attempts and resets round to 'not_started'
+  - ✅ Participants can retake the test fresh after restart
+- **BACKEND IMPLEMENTATION:**
+  - ✅ Added POST /api/rounds/:roundId/restart endpoint
+  - ✅ Created deleteTestAttemptsByRound() method in storage layer
+  - ✅ Updated updateRoundStatus() to accept null timestamps for reset
+  - ✅ Proper authentication and authorization validation
+- **FRONTEND IMPLEMENTATION:**
+  - ✅ Added "Restart Round" button with RotateCcw icon
+  - ✅ AlertDialog confirmation with warning about data deletion
+  - ✅ Success/error toast notifications
+  - ✅ Auto-refresh table after restart via cache invalidation
+- **USE CASE:**
+  - Admin can reset a completed or in-progress round
+  - All participant attempts are wiped clean
+  - Round returns to 'not_started' status
+  - Admin can then click "Start Round" to begin fresh test session
+- **TESTING:** All requirements verified by architect, no regressions, zero LSP errors
+
 **October 3, 2025** - Rounds Management System Redesign - Real-Time Status Sync ✅
 - **MAJOR SYSTEM REDESIGN:**
   - ✅ Completely redesigned rounds lifecycle to eliminate start time confusion
