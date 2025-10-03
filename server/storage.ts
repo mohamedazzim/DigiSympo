@@ -111,6 +111,8 @@ export interface IStorage {
   createEmailLog(log: InsertEmailLog): Promise<EmailLog>;
   getEmailLogs(filters?: { status?: string; templateType?: string; startDate?: Date; endDate?: Date }): Promise<EmailLog[]>;
   getEmailLogsByRecipient(email: string): Promise<EmailLog[]>;
+  
+  getParticipantsByEventId(eventId: string): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -134,7 +136,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const result = await db.insert(users).values(insertUser).returning();
+    const [user] = result as User[];
     return user;
   }
 
@@ -1174,6 +1177,17 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(emailLogs)
       .where(eq(emailLogs.recipientEmail, email))
       .orderBy(desc(emailLogs.sentAt));
+  }
+
+  async getParticipantsByEventId(eventId: string): Promise<User[]> {
+    const result = await db
+      .select({ user: users })
+      .from(users)
+      .innerJoin(participants, eq(participants.userId, users.id))
+      .where(and(eq(participants.eventId, eventId), eq(users.role, 'participant')))
+      .groupBy(users.id);
+    
+    return result.map(r => r.user);
   }
 }
 

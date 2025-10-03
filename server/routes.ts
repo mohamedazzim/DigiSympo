@@ -9,6 +9,7 @@ import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, requireRegistrationCommittee, requireEventAdminOrSuperAdmin, type AuthRequest } from "./middleware/auth";
 import { emailService } from "./services/emailService";
+import { WebSocketService } from "./services/websocketService";
 
 const JWT_SECRET = process.env.JWT_SECRET || "symposium-secret-key-change-in-production";
 
@@ -766,6 +767,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       );
 
+      // Notify via WebSocket
+      WebSocketService.notifyRoundStatus(round.eventId, req.params.roundId, 'in_progress', updatedRound);
+
       res.json(updatedRound);
     } catch (error) {
       console.error("Start round error:", error);
@@ -785,6 +789,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedRound = await storage.updateRoundStatus(req.params.roundId, 'completed');
+      
+      // Notify via WebSocket
+      WebSocketService.notifyRoundStatus(round.eventId, req.params.roundId, 'completed', updatedRound);
+
       res.json(updatedRound);
     } catch (error) {
       console.error("End round error:", error);
@@ -812,6 +820,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           storage.updateEventCredentialTestStatus(cred.id, false, req.user!.id)
         )
       );
+      
+      // Notify via WebSocket
+      WebSocketService.notifyRoundStatus(round.eventId, req.params.roundId, 'not_started', updatedRound);
       
       res.json({
         message: "Round restarted successfully",
@@ -1271,6 +1282,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalScore
       });
 
+      // Notify participant via WebSocket
+      const round = await storage.getRound(attempt.roundId);
+      if (round) {
+        WebSocketService.notifyResultPublished(attempt.userId, round.eventId, updatedAttempt);
+      }
+
       res.json(updatedAttempt);
     } catch (error) {
       console.error("Submit test error:", error);
@@ -1507,6 +1524,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const registration = await storage.createRegistration(form.id, submittedData, selectedEvents);
+      
+      // Notify via WebSocket for each event
+      for (const eventId of selectedEvents) {
+        const event = await storage.getEventById(eventId);
+        WebSocketService.notifyRegistrationUpdate(eventId, {
+          ...registration,
+          eventName: event?.name || 'Unknown Event'
+        });
+      }
+      
       res.status(201).json(registration);
     } catch (error) {
       console.error("Submit registration error:", error);
@@ -1704,6 +1731,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eventCred.eventUsername,
           eventCred.eventPassword
         );
+      }
+      
+      // Notify via WebSocket for each event
+      for (const eventCred of eventCredentialsList) {
+        WebSocketService.notifyRegistrationUpdate(eventCred.eventId, {
+          participantId: newUser.id,
+          fullName: newUser.fullName,
+          email: newUser.email,
+          eventName: eventCred.eventName
+        });
       }
       
       res.status(201).json({
@@ -2818,6 +2855,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress
       );
 
+      // Notify via WebSocket
+      WebSocketService.notifyOverrideAction('override_event', 'event', eventId, { before, after });
+
       res.json(updatedEvent);
     } catch (error) {
       console.error("Override event error:", error);
@@ -2854,6 +2894,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reason || null,
         ipAddress
       );
+
+      // Notify via WebSocket
+      WebSocketService.notifyOverrideAction('delete_event', 'event', eventId, { eventName: existingEvent.name });
 
       res.status(204).send();
     } catch (error) {
@@ -2928,6 +2971,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress
       );
 
+      // Notify via WebSocket
+      WebSocketService.notifyOverrideAction('override_question', 'question', questionId, { before, after });
+
       res.json(updatedQuestion);
     } catch (error) {
       console.error("Override question error:", error);
@@ -2964,6 +3010,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reason || null,
         ipAddress
       );
+
+      // Notify via WebSocket
+      WebSocketService.notifyOverrideAction('delete_question', 'question', questionId, { questionText: existingQuestion.questionText });
 
       res.status(204).send();
     } catch (error) {
@@ -3030,6 +3079,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reason || null,
         ipAddress
       );
+
+      // Notify via WebSocket
+      WebSocketService.notifyOverrideAction('override_round', 'round', roundId, { before, after });
 
       res.json(updatedRound);
     } catch (error) {

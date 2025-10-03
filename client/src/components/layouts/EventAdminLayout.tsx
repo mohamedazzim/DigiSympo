@@ -2,15 +2,18 @@ import { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Calendar, 
   Settings, 
   Users, 
   FileQuestion,
   LayoutDashboard,
-  LogOut
+  LogOut,
+  Circle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 
 interface EventAdminLayoutProps {
   children: ReactNode;
@@ -25,6 +28,7 @@ const navigation = [
 export default function EventAdminLayout({ children }: EventAdminLayoutProps) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
+  const { isConnected } = useWebSocket();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -34,6 +38,12 @@ export default function EventAdminLayout({ children }: EventAdminLayoutProps) {
             <h1 className="text-xl font-bold text-gray-900">Symposium Management</h1>
             <span className="text-sm text-gray-500">|</span>
             <span className="text-sm text-gray-600">Event Admin</span>
+            {isConnected && (
+              <Badge variant="outline" className="ml-2" data-testid="badge-websocket-connected">
+                <Circle className="w-2 h-2 mr-1 fill-green-500 text-green-500" />
+                Live
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">

@@ -1,8 +1,10 @@
 import { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { LogOut, Circle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 
 interface ParticipantLayoutProps {
   children: ReactNode;
@@ -10,6 +12,7 @@ interface ParticipantLayoutProps {
 
 export default function ParticipantLayout({ children }: ParticipantLayoutProps) {
   const { user, logout } = useAuth();
+  const { isConnected } = useWebSocket();
 
   const { data: credentialData } = useQuery<any>({
     queryKey: ['/api/participants/my-credential'],
@@ -35,6 +38,12 @@ export default function ParticipantLayout({ children }: ParticipantLayoutProps) 
             <span className="text-sm text-gray-700" data-testid="text-participant-name">
               {participantName}
             </span>
+            {isConnected && (
+              <Badge variant="outline" className="ml-2" data-testid="badge-websocket-connected">
+                <Circle className="w-2 h-2 mr-1 fill-green-500 text-green-500" />
+                Live
+              </Badge>
+            )}
           </div>
           <Button
             variant="outline"
