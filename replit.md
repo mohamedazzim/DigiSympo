@@ -34,7 +34,7 @@ Key features include:
 - **Leaderboard System:** Real-time leaderboards for rounds and events, with a visual podium.
 - **Universal Login:** Supports event-specific participant credentials and standard admin accounts.
 - **On-Spot Registration:** Registration Committee can manage participants directly, with auto-generated human-readable credentials (e.g., `eventname-firstname-001`, `shortname001`). Credentials can be exported in CSV/PDF.
-- **Real-Time WebSocket Communication:** Production-ready Socket.io-based system for instant notifications and live updates (e.g., registration updates, round status changes, Super Admin actions, result publishing) with RBAC filtering, authentication-aware lifecycle, and single connection per client via centralized context provider.
+- **Real-Time WebSocket Communication:** Production-ready Socket.io-based system for instant notifications and live updates (e.g., registration updates, round status changes, Super Admin actions, result publishing) with RBAC filtering, authentication-aware lifecycle, and single connection per client via centralized context provider. **VALIDATED:** Comprehensive stress testing completed with 200+ concurrent connections, all RBAC tests passed, performance within acceptable thresholds (see docs/websocket-validation-report.md).
 
 ### System Design Choices
 - **Modular Design:** Clear separation of concerns (frontend, backend, database).
