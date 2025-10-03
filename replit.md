@@ -1,60 +1,67 @@
-# Symposium Management System
+# BootFeet 2K26 - Symposium Management System
 
-## Overview
-The Symposium Management System is a React-based web application for managing symposium events. It provides role-based access control (Super Admin, Event Admin, Participants), facilitates proctored online testing with strict integrity measures, enables efficient event and question management, and offers real-time leaderboards and reporting capabilities. The project aims to deliver a robust, secure, and user-friendly system for organizing and conducting online assessments for various events. The business vision is to provide a comprehensive solution for online event management and assessment, tapping into the growing market for virtual and hybrid events.
+## Project Overview
+A comprehensive React-based web application for managing symposium events with role-based access control, proctored online testing, real-time updates, and advanced reporting capabilities.
 
-## User Preferences
-- Following PRD specification from attached_assets
-- Using PostgreSQL instead of MongoDB (already configured)
-- Building in phases as outlined in the PRD
-- Strict proctoring features required (fullscreen, no tab switching, no refresh)
-- **NEW REQUIREMENT: Single-Event Event Admin Dashboard**
-  - Each Event Admin is assigned to ONE specific event only
-  - Dashboard must show ONLY their assigned event data (not multi-event summaries)
-  - Remove: My Events, Active Events, Recent Activity, Quick Actions sections
-  - Show: Event Name, Total Participants Count, Manage Settings button, Test Control button
-  - Event-centric design: All features focus on managing that single event
-  - Enterprise-grade, minimal UI with real-time live results capability
+## Recent Setup (October 3, 2025)
+- Project imported from GitHub repository
+- Dependencies installed successfully
+- PostgreSQL database provisioned (Neon-backed via Replit)
+- Database environment variables configured automatically
+- Ready for JWT_SECRET configuration and schema migration
 
-## System Architecture
+## Tech Stack
+- **Frontend**: React 18 + Vite + Tailwind CSS + shadcn/ui
+- **Backend**: Express.js + Node.js (TypeScript)
+- **Database**: PostgreSQL with Drizzle ORM
+- **Real-time**: Socket.io (WebSocket)
+- **Authentication**: JWT + bcrypt
 
-### UI/UX Decisions
-The system uses React with Vite, shadcn/ui (Radix UI primitives), and Tailwind CSS for a fast, modern, and responsive frontend. Design emphasizes clarity, ease of navigation, and clear data presentation, including visual podiums for leaderboards. The Event Admin Dashboard features an enterprise-grade UI with indigo/purple gradient color schemes and professional animations.
+## Environment Configuration
+### Required Secrets
+- `JWT_SECRET` - **NEEDS TO BE SET**: Use the value below or generate your own
+  - Suggested value: `32e3aa3dafe5bbb1b131beeb8aa964f9b408535c6090d52e5a3bc35f74e2d7e3f967dc53b66b9e788472747f4a5d8ede166e0b8ec442903e8525002906548a68`
 
-### Technical Implementations
-The application follows a client-server architecture with a React frontend and a Node.js Express backend. Data is stored in PostgreSQL using Drizzle ORM. Authentication uses JWT with bcrypt for password hashing, and role-based access control is enforced via middleware.
+### Optional Secrets (for email notifications)
+- `SMTP_HOST` - SMTP server hostname
+- `SMTP_PORT` - SMTP server port
+- `SMTP_USER` - SMTP username
+- `SMTP_PASS` - SMTP password
+- `SMTP_FROM` - Email sender address
 
-Key features include:
-- **Role-Based Access Control:** Super Admin, Event Admin, and Participant roles with corresponding permissions.
-- **Event and Round Management:** CRUD operations for events and rounds, including a 3-state lifecycle (not_started → in_progress → completed) with real-time status synchronization. Event Admins can restart rounds.
-- **Question Management:** Supports MCQ, True/False, Short Answer, and Coding question types, with bulk upload.
-- **Proctored Online Testing:** Configurable rules including fullscreen enforcement, tab switch detection, and violation tracking.
-- **Test Flow:** Admin-controlled with live countdown timers and auto-save.
-- **Reporting:** Event-wise and symposium-wide reports downloadable as JSON, Excel, and PDF, with Super Admin override capabilities and audit trails.
-- **Leaderboard System:** Real-time leaderboards for rounds and events, with a visual podium.
-- **Universal Login:** Supports event-specific participant credentials and standard admin accounts.
-- **On-Spot Registration:** Registration Committee can manage participants directly, with auto-generated human-readable credentials (e.g., `eventname-firstname-001`, `shortname001`). Credentials can be exported in CSV/PDF.
-- **Real-Time WebSocket Communication:** Production-ready Socket.io-based system for instant notifications and live updates (e.g., registration updates, round status changes, Super Admin actions, result publishing) with RBAC filtering, authentication-aware lifecycle, and single connection per client via centralized context provider. **VALIDATED:** Comprehensive stress testing completed with 200+ concurrent connections, all RBAC tests passed, performance within acceptable thresholds (see docs/websocket-validation-report.md).
+## Project Structure
+```
+├── client/          # React frontend
+├── server/          # Express backend
+├── shared/          # Shared types and schemas
+├── docs/           # Documentation
+├── tests/          # Test files
+└── attached_assets/ # Static assets
+```
 
-### System Design Choices
-- **Modular Design:** Clear separation of concerns (frontend, backend, database).
-- **Scalability:** Built on a modern tech stack.
-- **Data Integrity:** Ensured through robust backend validation and database constraints.
-- **Security:** Implemented with JWT, bcrypt, and role-based access control.
-- **Testability:** Extensive use of `data-testid` attributes.
+## Development Workflow
+1. Server runs on port 5000 (0.0.0.0)
+2. Vite dev server configured with `allowedHosts: true` for Replit proxy
+3. Backend and frontend served from same port
+4. WebSocket server runs alongside Express
 
-## External Dependencies
-- **Frontend Framework:** React
-- **Build Tool:** Vite
-- **Routing:** Wouter
-- **State Management/Data Fetching:** TanStack Query
-- **Styling Framework:** Tailwind CSS
-- **UI Components:** shadcn/ui (based on Radix UI primitives)
-- **Backend Runtime:** Node.js
-- **Web Framework:** Express
-- **Database:** PostgreSQL (specifically Neon for Replit environment)
-- **Object-Relational Mapper (ORM):** Drizzle
-- **Authentication:** JSON Web Tokens (JWT), bcrypt
-- **PDF Generation:** PDFKit
-- **Excel Generation:** exceljs
-- **Real-Time Communication:** Socket.io (WebSocket)
+## Database Management
+- Use `npm run db:push` to sync schema changes
+- Use `npm run db:push --force` if data-loss warning appears
+- Never manually write SQL migrations
+- Database URL provided automatically by Replit
+
+## User Roles
+1. **Super Admin** - Full system control
+2. **Event Admin** - Manages assigned events
+3. **Participant** - Takes tests and views results
+4. **Registration Committee** - Manages registrations
+
+## Key Features
+- Role-based access control (RBAC)
+- Proctored online testing with violation tracking
+- Real-time WebSocket updates
+- Leaderboards and analytics
+- Email notifications
+- Credential management (CSV/PDF export)
+- Super admin override capabilities with audit logging
