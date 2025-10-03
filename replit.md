@@ -17,6 +17,30 @@ The Symposium Management System is a React-based web application designed for ma
   - Enterprise-grade, minimal UI with real-time live results capability
 
 ## Recent Changes
+**October 3, 2025** - Live Timer & Participant Test Flow Fix ✅
+- **NEW FEATURE: Live Countdown Timer for Event Admins**
+  - ✅ Added "Time Remaining" column to Rounds Management table
+  - ✅ Real-time countdown timer updates every second for in-progress rounds
+  - ✅ Dynamic color coding: Red (<5 min), Yellow (<15 min), Green (>15 min)
+  - ✅ Smart display format: "MM:SS" for short durations, "Xh Ym" for long durations
+  - ✅ Shows "-- : --" for not_started rounds, "Completed" for completed rounds
+  - ✅ Proper cleanup on component unmount to prevent memory leaks
+- **CRITICAL BUG FIX: Participant Test Access**
+  - ✅ **ROOT CAUSE:** When participants clicked "Begin Test" multiple times, backend rejected duplicate attempts but frontend didn't navigate to existing attempt
+  - ✅ **BACKEND:** Added GET /api/participants/rounds/:roundId/my-attempt endpoint to check for existing attempts
+  - ✅ **FRONTEND:** Modified Begin Test flow to check for existing attempt BEFORE creating new one
+  - ✅ If attempt exists → navigate directly to /participant/test/:attemptId
+  - ✅ If no attempt → create new one via POST endpoint
+  - ✅ Fixed error handling: Added response.ok checks before parsing JSON to properly surface backend errors
+  - ✅ All error cases now display proper toast messages to users
+- **DATA FLOW:**
+  1. Participant clicks "Begin Test"
+  2. Frontend calls GET /api/participants/rounds/:roundId/my-attempt
+  3. If existing attempt found → Navigate to test page immediately
+  4. If no attempt → Create new via POST /api/events/:eventId/rounds/:roundId/start
+  5. All errors properly surfaced via toast notifications
+- **TESTING:** All requirements verified by architect, zero LSP errors, proper error handling confirmed
+
 **October 3, 2025** - Restart Round Feature for Event Admins ✅
 - **NEW FEATURE: Restart Round Functionality**
   - ✅ Event Admins can now restart any round from the Rounds Management page
