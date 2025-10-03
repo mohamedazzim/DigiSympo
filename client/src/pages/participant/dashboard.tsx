@@ -29,7 +29,23 @@ export default function ParticipantDashboard() {
 
   const startTestMutation = useMutation({
     mutationFn: async (roundId: string) => {
-      return apiRequest('POST', `/api/events/${event?.id}/rounds/${roundId}/start`, {});
+      const checkResponse = await apiRequest('GET', `/api/participants/rounds/${roundId}/my-attempt`, {});
+      if (!checkResponse.ok) {
+        const error = await checkResponse.json();
+        throw new Error(error.message || 'Failed to check for existing attempt');
+      }
+      const checkData = await checkResponse.json();
+      
+      if (checkData.attempt) {
+        return checkData.attempt;
+      }
+      
+      const createResponse = await apiRequest('POST', `/api/events/${event?.id}/rounds/${roundId}/start`, {});
+      if (!createResponse.ok) {
+        const error = await createResponse.json();
+        throw new Error(error.message || 'Failed to start test');
+      }
+      return await createResponse.json();
     },
     onSuccess: (attempt: any) => {
       setLocation(`/participant/test/${attempt.id}`);

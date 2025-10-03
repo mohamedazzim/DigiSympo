@@ -1009,6 +1009,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/participants/rounds/:roundId/my-attempt", requireAuth, requireParticipant, async (req: AuthRequest, res: Response) => {
+    try {
+      const { roundId } = req.params;
+      const userId = req.user!.id;
+
+      const existingAttempt = await storage.getTestAttemptByUserAndRound(userId, roundId);
+      
+      if (!existingAttempt) {
+        return res.json({ attempt: null });
+      }
+
+      res.json({ attempt: existingAttempt });
+    } catch (error) {
+      console.error("Get my attempt error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/attempts/:attemptId", requireAuth, async (req: AuthRequest, res: Response) => {
     try {
       const attempt = await storage.getTestAttempt(req.params.attemptId);

@@ -1,6 +1,6 @@
 import { useParams, useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EventAdminLayout from '@/components/layouts/EventAdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,70 @@ import { ArrowLeft, Plus, Edit, FileQuestion, Clock, Play, Square, RotateCcw } f
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { Round, Event } from '@shared/schema';
+
+function CountdownTimer({ round }: { round: Round }) {
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (round.status !== 'in_progress' || !round.startedAt) {
+      return;
+    }
+
+    const calculateTimeRemaining = () => {
+      const now = new Date().getTime();
+      const startedAt = new Date(round.startedAt!).getTime();
+      const durationMs = round.duration * 60 * 1000;
+      const elapsed = now - startedAt;
+      const remaining = Math.max(0, durationMs - elapsed);
+      return Math.floor(remaining / 1000);
+    };
+
+    setTimeRemaining(calculateTimeRemaining());
+
+    const interval = setInterval(() => {
+      setTimeRemaining(calculateTimeRemaining());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [round]);
+
+  if (round.status === 'not_started') {
+    return <span className="text-gray-400" data-testid={`timer-not-started-${round.id}`}>-- : --</span>;
+  }
+
+  if (round.status === 'completed') {
+    return <span className="text-gray-500" data-testid={`timer-completed-${round.id}`}>Completed</span>;
+  }
+
+  if (timeRemaining === null) {
+    return <span className="text-gray-400">--:--</span>;
+  }
+
+  const totalMinutes = Math.floor(timeRemaining / 60);
+  const seconds = timeRemaining % 60;
+
+  let displayText: string;
+  if (totalMinutes >= 60) {
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    displayText = `${hours}h ${mins}m`;
+  } else {
+    displayText = `${totalMinutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  let colorClass = 'text-green-600';
+  if (timeRemaining < 300) {
+    colorClass = 'text-red-600 font-semibold';
+  } else if (timeRemaining < 900) {
+    colorClass = 'text-yellow-600 font-semibold';
+  }
+
+  return (
+    <span className={colorClass} data-testid={`timer-${round.id}`}>
+      {displayText}
+    </span>
+  );
+}
 
 export default function EventRoundsPage() {
   const { eventId } = useParams();
@@ -188,6 +252,7 @@ export default function EventRoundsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Duration</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Time Remaining</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -200,6 +265,9 @@ export default function EventRoundsPage() {
                       <TableCell>{round.name}</TableCell>
                       <TableCell>{round.duration} minutes</TableCell>
                       <TableCell>{getStatusBadge(round.status)}</TableCell>
+                      <TableCell>
+                        <CountdownTimer round={round} />
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {round.status === 'not_started' && (
