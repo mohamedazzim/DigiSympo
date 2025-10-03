@@ -6,7 +6,8 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { nanoid } from "nanoid";
 import PDFDocument from "pdfkit";
-import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, requireRegistrationCommittee, type AuthRequest } from "./middleware/auth";
+import ExcelJS from "exceljs";
+import { requireAuth, requireSuperAdmin, requireEventAdmin, requireParticipant, requireEventAccess, requireRoundAccess, requireRegistrationCommittee, requireEventAdminOrSuperAdmin, type AuthRequest } from "./middleware/auth";
 
 const JWT_SECRET = process.env.JWT_SECRET || "symposium-secret-key-change-in-production";
 
@@ -1999,6 +2000,709 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get credentials status error:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/reports/export/event/:eventId/excel", requireAuth, requireEventAdminOrSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const rounds = await storage.getRoundsByEvent(eventId);
+      const participants = await storage.getParticipantsByEvent(eventId);
+      const leaderboard = await storage.getEventLeaderboard(eventId);
+
+      const workbook = new ExcelJS.Workbook();
+      
+      const sheet1 = workbook.addWorksheet('Event Overview');
+      sheet1.columns = [
+        { header: 'Metric', key: 'metric', width: 30 },
+        { header: 'Value', key: 'value', width: 40 }
+      ];
+      
+      const completedAttempts = leaderboard.length;
+      const avgCompletionRate = participants.length > 0 ? ((completedAttempts / participants.length) * 100).toFixed(2) : '0';
+      
+      sheet1.addRows([
+        { metric: 'Event Name', value: event.name },
+        { metric: 'Event Type', value: event.type },
+        { metric: 'Event Status', value: event.status },
+        { metric: 'Total Participants', value: participants.length },
+        { metric: 'Total Rounds', value: rounds.length },
+        { metric: 'Average Completion Rate', value: `${avgCompletionRate}%` }
+      ]);
+      
+      sheet1.getRow(1).font = { bold: true };
+      sheet1.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const sheet2 = workbook.addWorksheet('Round Details');
+      sheet2.columns = [
+        { header: 'Round Name', key: 'name', width: 20 },
+        { header: 'Duration (min)', key: 'duration', width: 15 },
+        { header: 'Start Time', key: 'startTime', width: 25 },
+        { header: 'End Time', key: 'endTime', width: 25 },
+        { header: 'Participants Attempted', key: 'attempted', width: 25 },
+        { header: 'Avg Score', key: 'avgScore', width: 15 },
+        { header: 'Completion Rate', key: 'completionRate', width: 20 }
+      ];
+
+      for (const round of rounds) {
+        const roundLeaderboard = await storage.getRoundLeaderboard(round.id);
+        const avgScore = roundLeaderboard.length > 0 
+          ? (roundLeaderboard.reduce((sum, r) => sum + (r.totalScore || 0), 0) / roundLeaderboard.length).toFixed(2)
+          : '0';
+        const completionRate = participants.length > 0 
+          ? ((roundLeaderboard.length / participants.length) * 100).toFixed(2)
+          : '0';
+
+        sheet2.addRow({
+          name: round.name,
+          duration: round.duration,
+          startTime: round.startTime ? new Date(round.startTime).toLocaleString() : 'Not set',
+          endTime: round.endTime ? new Date(round.endTime).toLocaleString() : 'Not set',
+          attempted: roundLeaderboard.length,
+          avgScore: avgScore,
+          completionRate: `${completionRate}%`
+        });
+      }
+
+      sheet2.getRow(1).font = { bold: true };
+      sheet2.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const sheet3 = workbook.addWorksheet('Participant Scores');
+      const columns: any[] = [
+        { header: 'Rank', key: 'rank', width: 10 },
+        { header: 'Participant Name', key: 'name', width: 30 },
+        { header: 'Email', key: 'email', width: 30 }
+      ];
+
+      rounds.forEach((round, idx) => {
+        columns.push({ header: `Round ${idx + 1} Score`, key: `round${idx + 1}`, width: 18 });
+      });
+
+      columns.push({ header: 'Total Score', key: 'totalScore', width: 15 });
+      columns.push({ header: 'Status', key: 'status', width: 15 });
+
+      sheet3.columns = columns;
+
+      for (const entry of leaderboard) {
+        const user = await storage.getUser(entry.userId);
+        const participant = participants.find(p => p.userId === entry.userId);
+        
+        const rowData: any = {
+          rank: entry.rank,
+          name: entry.userName,
+          email: user?.email || 'N/A',
+          totalScore: entry.totalScore || 0,
+          status: participant?.status || 'N/A'
+        };
+
+        for (let i = 0; i < rounds.length; i++) {
+          const roundAttempt = await storage.getTestAttemptByUserAndRound(entry.userId, rounds[i].id);
+          rowData[`round${i + 1}`] = roundAttempt?.totalScore || 0;
+        }
+
+        sheet3.addRow(rowData);
+      }
+
+      sheet3.getRow(1).font = { bold: true };
+      sheet3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const sheet4 = workbook.addWorksheet('Leaderboard');
+      sheet4.columns = [
+        { header: 'Rank', key: 'rank', width: 10 },
+        { header: 'Name', key: 'name', width: 30 },
+        { header: 'Total Score', key: 'totalScore', width: 15 },
+        { header: 'Completion Time', key: 'completionTime', width: 25 }
+      ];
+
+      leaderboard.forEach(entry => {
+        sheet4.addRow({
+          rank: entry.rank,
+          name: entry.userName,
+          totalScore: entry.totalScore || 0,
+          completionTime: entry.submittedAt ? new Date(entry.submittedAt).toLocaleString() : 'N/A'
+        });
+      });
+
+      sheet4.getRow(1).font = { bold: true };
+      sheet4.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const fileName = `Event_Report_${event.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error("Export event Excel error:", error);
+      res.status(500).json({ message: "Failed to generate Excel report" });
+    }
+  });
+
+  app.get("/api/reports/export/event/:eventId/pdf", requireAuth, requireEventAdminOrSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const rounds = await storage.getRoundsByEvent(eventId);
+      const participants = await storage.getParticipantsByEvent(eventId);
+      const leaderboard = await storage.getEventLeaderboard(eventId);
+
+      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 50 });
+      const fileName = `Event_Report_${event.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      doc.pipe(res);
+
+      doc.fontSize(20).font('Helvetica-Bold').text(`Event Report: ${event.name}`, { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(14).font('Helvetica-Bold').text('Event Statistics', { underline: true });
+      doc.moveDown(0.5);
+      
+      const completedAttempts = leaderboard.length;
+      const avgCompletionRate = participants.length > 0 ? ((completedAttempts / participants.length) * 100).toFixed(2) : '0';
+
+      doc.fontSize(10).font('Helvetica');
+      let y = doc.y;
+      const tableTop = y;
+      const col1X = 50;
+      const col2X = 300;
+      
+      doc.rect(col1X, y, 250, 20).stroke();
+      doc.rect(col2X, y, 250, 20).stroke();
+      doc.font('Helvetica-Bold').text('Metric', col1X + 5, y + 5, { width: 240 });
+      doc.text('Value', col2X + 5, y + 5, { width: 240 });
+      y += 20;
+
+      const stats = [
+        ['Event Type', event.type],
+        ['Event Status', event.status],
+        ['Total Participants', participants.length.toString()],
+        ['Total Rounds', rounds.length.toString()],
+        ['Completion Rate', `${avgCompletionRate}%`]
+      ];
+
+      doc.font('Helvetica');
+      stats.forEach((stat, idx) => {
+        const fillColor = idx % 2 === 0 ? '#f0f0f0' : '#ffffff';
+        doc.rect(col1X, y, 250, 20).fillAndStroke(fillColor, '#000000');
+        doc.rect(col2X, y, 250, 20).fillAndStroke(fillColor, '#000000');
+        doc.fillColor('#000000').text(stat[0], col1X + 5, y + 5, { width: 240 });
+        doc.text(stat[1], col2X + 5, y + 5, { width: 240 });
+        y += 20;
+      });
+
+      doc.addPage();
+      doc.fontSize(14).font('Helvetica-Bold').text('Round Details', { underline: true });
+      doc.moveDown(0.5);
+
+      y = doc.y;
+      const headers = ['Round', 'Duration', 'Participants', 'Avg Score', 'Completion'];
+      const colWidths = [120, 80, 100, 80, 100];
+      let x = 50;
+
+      doc.fontSize(9).font('Helvetica-Bold');
+      headers.forEach((header, i) => {
+        doc.rect(x, y, colWidths[i], 20).stroke();
+        doc.text(header, x + 5, y + 5, { width: colWidths[i] - 10 });
+        x += colWidths[i];
+      });
+      y += 20;
+
+      doc.font('Helvetica');
+      for (const round of rounds) {
+        const roundLeaderboard = await storage.getRoundLeaderboard(round.id);
+        const avgScore = roundLeaderboard.length > 0 
+          ? (roundLeaderboard.reduce((sum, r) => sum + (r.totalScore || 0), 0) / roundLeaderboard.length).toFixed(2)
+          : '0';
+        const completionRate = participants.length > 0 
+          ? ((roundLeaderboard.length / participants.length) * 100).toFixed(2)
+          : '0';
+
+        x = 50;
+        const rowData = [
+          round.name,
+          `${round.duration} min`,
+          roundLeaderboard.length.toString(),
+          avgScore,
+          `${completionRate}%`
+        ];
+
+        rowData.forEach((data, i) => {
+          doc.rect(x, y, colWidths[i], 20).stroke();
+          doc.text(data, x + 5, y + 5, { width: colWidths[i] - 10 });
+          x += colWidths[i];
+        });
+        y += 20;
+
+        if (y > 500) {
+          doc.addPage();
+          y = 50;
+        }
+      }
+
+      doc.addPage();
+      doc.fontSize(14).font('Helvetica-Bold').text('Participant Scores', { underline: true });
+      doc.moveDown(0.5);
+
+      const participantScores = [];
+      for (const participant of participants) {
+        const user = await storage.getUser(participant.userId);
+        if (!user) continue;
+        
+        const roundScores = [];
+        let totalScore = 0;
+        
+        for (const round of rounds) {
+          const attempt = await storage.getTestAttemptByUserAndRound(participant.userId, round.id);
+          const score = attempt && attempt.status === 'completed' ? (attempt.totalScore || 0) : 0;
+          roundScores.push(score);
+          totalScore += score;
+        }
+        
+        participantScores.push({
+          name: user.fullName,
+          email: user.email,
+          roundScores,
+          totalScore,
+          status: participant.status
+        });
+      }
+
+      participantScores.sort((a, b) => b.totalScore - a.totalScore);
+
+      y = doc.y;
+      const psHeaders = ['Rank', 'Name', 'Email'];
+      rounds.forEach((round, idx) => {
+        psHeaders.push(`R${idx + 1}`);
+      });
+      psHeaders.push('Total');
+      psHeaders.push('Status');
+
+      const psColWidths = [60, 150, 150];
+      rounds.forEach(() => {
+        psColWidths.push(80);
+      });
+      psColWidths.push(80);
+      psColWidths.push(80);
+
+      x = 50;
+      doc.fontSize(9).font('Helvetica-Bold');
+      psHeaders.forEach((header, i) => {
+        doc.rect(x, y, psColWidths[i], 20).fillAndStroke('#f0f0f0', '#000000');
+        doc.fillColor('#000000').text(header, x + 5, y + 5, { width: psColWidths[i] - 10 });
+        x += psColWidths[i];
+      });
+      y += 20;
+
+      doc.font('Helvetica');
+      participantScores.slice(0, 50).forEach((entry, idx) => {
+        x = 50;
+        const rank = idx + 1;
+        const rowData = [
+          rank.toString(),
+          entry.name,
+          entry.email
+        ];
+        
+        entry.roundScores.forEach(score => {
+          rowData.push(score.toString());
+        });
+        
+        rowData.push(entry.totalScore.toString());
+        rowData.push(entry.status);
+
+        const fillColor = idx % 2 === 0 ? '#ffffff' : '#f9f9f9';
+        rowData.forEach((data, i) => {
+          doc.rect(x, y, psColWidths[i], 20).fillAndStroke(fillColor, '#000000');
+          doc.fillColor('#000000').text(data, x + 5, y + 5, { width: psColWidths[i] - 10 });
+          x += psColWidths[i];
+        });
+        y += 20;
+
+        if (y > 500) {
+          doc.addPage();
+          y = 50;
+        }
+      });
+
+      doc.addPage();
+      doc.fontSize(14).font('Helvetica-Bold').text('Leaderboard', { underline: true });
+      doc.moveDown(0.5);
+
+      y = doc.y;
+      const lbHeaders = ['Rank', 'Name', 'Total Score', 'Completion Time'];
+      const lbColWidths = [60, 200, 100, 150];
+      x = 50;
+
+      doc.fontSize(9).font('Helvetica-Bold');
+      lbHeaders.forEach((header, i) => {
+        doc.rect(x, y, lbColWidths[i], 20).stroke();
+        doc.text(header, x + 5, y + 5, { width: lbColWidths[i] - 10 });
+        x += lbColWidths[i];
+      });
+      y += 20;
+
+      doc.font('Helvetica');
+      leaderboard.slice(0, 20).forEach((entry) => {
+        x = 50;
+        const rowData = [
+          entry.rank.toString(),
+          entry.userName,
+          (entry.totalScore || 0).toString(),
+          entry.submittedAt ? new Date(entry.submittedAt).toLocaleString() : 'N/A'
+        ];
+
+        rowData.forEach((data, i) => {
+          doc.rect(x, y, lbColWidths[i], 20).stroke();
+          doc.text(data, x + 5, y + 5, { width: lbColWidths[i] - 10 });
+          x += lbColWidths[i];
+        });
+        y += 20;
+
+        if (y > 500) {
+          doc.addPage();
+          y = 50;
+        }
+      });
+
+      doc.end();
+    } catch (error) {
+      console.error("Export event PDF error:", error);
+      res.status(500).json({ message: "Failed to generate PDF report" });
+    }
+  });
+
+  app.get("/api/reports/export/symposium/excel", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const events = await storage.getEvents();
+      const allUsers = await storage.getUsers();
+      const participants = allUsers.filter(u => u.role === 'participant');
+
+      const workbook = new ExcelJS.Workbook();
+      
+      const sheet1 = workbook.addWorksheet('Symposium Overview');
+      sheet1.columns = [
+        { header: 'Metric', key: 'metric', width: 30 },
+        { header: 'Value', key: 'value', width: 40 }
+      ];
+
+      let totalRounds = 0;
+      let totalCompletedAttempts = 0;
+      let totalParticipants = 0;
+
+      for (const event of events) {
+        const rounds = await storage.getRoundsByEvent(event.id);
+        const eventParticipants = await storage.getParticipantsByEvent(event.id);
+        const leaderboard = await storage.getEventLeaderboard(event.id);
+        
+        totalRounds += rounds.length;
+        totalCompletedAttempts += leaderboard.length;
+        totalParticipants += eventParticipants.length;
+      }
+
+      const overallCompletionRate = totalParticipants > 0 
+        ? ((totalCompletedAttempts / totalParticipants) * 100).toFixed(2)
+        : '0';
+
+      sheet1.addRows([
+        { metric: 'Total Events', value: events.length },
+        { metric: 'Total Participants', value: participants.length },
+        { metric: 'Total Rounds', value: totalRounds },
+        { metric: 'Overall Completion Rate', value: `${overallCompletionRate}%` }
+      ]);
+
+      sheet1.getRow(1).font = { bold: true };
+      sheet1.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const sheet2 = workbook.addWorksheet('Event Summaries');
+      sheet2.columns = [
+        { header: 'Event Name', key: 'name', width: 30 },
+        { header: 'Type', key: 'type', width: 15 },
+        { header: 'Participants', key: 'participants', width: 15 },
+        { header: 'Rounds', key: 'rounds', width: 15 },
+        { header: 'Avg Score', key: 'avgScore', width: 15 },
+        { header: 'Completion Rate', key: 'completionRate', width: 20 }
+      ];
+
+      for (const event of events) {
+        const rounds = await storage.getRoundsByEvent(event.id);
+        const eventParticipants = await storage.getParticipantsByEvent(event.id);
+        const leaderboard = await storage.getEventLeaderboard(event.id);
+        
+        const avgScore = leaderboard.length > 0
+          ? (leaderboard.reduce((sum, e) => sum + (e.totalScore || 0), 0) / leaderboard.length).toFixed(2)
+          : '0';
+        const completionRate = eventParticipants.length > 0
+          ? ((leaderboard.length / eventParticipants.length) * 100).toFixed(2)
+          : '0';
+
+        sheet2.addRow({
+          name: event.name,
+          type: event.type,
+          participants: eventParticipants.length,
+          rounds: rounds.length,
+          avgScore: avgScore,
+          completionRate: `${completionRate}%`
+        });
+      }
+
+      sheet2.getRow(1).font = { bold: true };
+      sheet2.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const sheet3 = workbook.addWorksheet('Top Performers');
+      sheet3.columns = [
+        { header: 'Rank', key: 'rank', width: 10 },
+        { header: 'Name', key: 'name', width: 30 },
+        { header: 'Total Score', key: 'totalScore', width: 15 },
+        { header: 'Events Participated', key: 'eventsCount', width: 20 }
+      ];
+
+      const userScores = new Map<string, { name: string; totalScore: number; eventsCount: number }>();
+
+      for (const event of events) {
+        const leaderboard = await storage.getEventLeaderboard(event.id);
+        
+        for (const entry of leaderboard) {
+          const existing = userScores.get(entry.userId);
+          if (existing) {
+            existing.totalScore += entry.totalScore || 0;
+            existing.eventsCount += 1;
+          } else {
+            userScores.set(entry.userId, {
+              name: entry.userName,
+              totalScore: entry.totalScore || 0,
+              eventsCount: 1
+            });
+          }
+        }
+      }
+
+      const topPerformers = Array.from(userScores.values())
+        .sort((a, b) => b.totalScore - a.totalScore)
+        .slice(0, 20);
+
+      topPerformers.forEach((performer, index) => {
+        sheet3.addRow({
+          rank: index + 1,
+          name: performer.name,
+          totalScore: performer.totalScore,
+          eventsCount: performer.eventsCount
+        });
+      });
+
+      sheet3.getRow(1).font = { bold: true };
+      sheet3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+      const fileName = `Symposium_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (error) {
+      console.error("Export symposium Excel error:", error);
+      res.status(500).json({ message: "Failed to generate Symposium Excel report" });
+    }
+  });
+
+  app.get("/api/reports/export/symposium/pdf", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const events = await storage.getEvents();
+      const allUsers = await storage.getUsers();
+      const participants = allUsers.filter(u => u.role === 'participant');
+
+      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 50 });
+      const fileName = `Symposium_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      doc.pipe(res);
+
+      doc.fontSize(20).font('Helvetica-Bold').text('Symposium-wide Report', { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(14).font('Helvetica-Bold').text('Symposium Overview', { underline: true });
+      doc.moveDown(0.5);
+
+      let totalRounds = 0;
+      let totalCompletedAttempts = 0;
+      let totalParticipants = 0;
+
+      for (const event of events) {
+        const rounds = await storage.getRoundsByEvent(event.id);
+        const eventParticipants = await storage.getParticipantsByEvent(event.id);
+        const leaderboard = await storage.getEventLeaderboard(event.id);
+        
+        totalRounds += rounds.length;
+        totalCompletedAttempts += leaderboard.length;
+        totalParticipants += eventParticipants.length;
+      }
+
+      const overallCompletionRate = totalParticipants > 0 
+        ? ((totalCompletedAttempts / totalParticipants) * 100).toFixed(2)
+        : '0';
+
+      doc.fontSize(10).font('Helvetica');
+      let y = doc.y;
+      const col1X = 50;
+      const col2X = 300;
+      
+      doc.rect(col1X, y, 250, 20).stroke();
+      doc.rect(col2X, y, 250, 20).stroke();
+      doc.font('Helvetica-Bold').text('Metric', col1X + 5, y + 5, { width: 240 });
+      doc.text('Value', col2X + 5, y + 5, { width: 240 });
+      y += 20;
+
+      const stats = [
+        ['Total Events', events.length.toString()],
+        ['Total Participants', participants.length.toString()],
+        ['Total Rounds', totalRounds.toString()],
+        ['Overall Completion Rate', `${overallCompletionRate}%`]
+      ];
+
+      doc.font('Helvetica');
+      stats.forEach((stat, idx) => {
+        const fillColor = idx % 2 === 0 ? '#f0f0f0' : '#ffffff';
+        doc.rect(col1X, y, 250, 20).fillAndStroke(fillColor, '#000000');
+        doc.rect(col2X, y, 250, 20).fillAndStroke(fillColor, '#000000');
+        doc.fillColor('#000000').text(stat[0], col1X + 5, y + 5, { width: 240 });
+        doc.text(stat[1], col2X + 5, y + 5, { width: 240 });
+        y += 20;
+      });
+
+      doc.addPage();
+      doc.fontSize(14).font('Helvetica-Bold').text('Event Summaries', { underline: true });
+      doc.moveDown(0.5);
+
+      y = doc.y;
+      const headers = ['Event', 'Type', 'Participants', 'Rounds', 'Completion'];
+      const colWidths = [150, 80, 100, 70, 110];
+      let x = 50;
+
+      doc.fontSize(9).font('Helvetica-Bold');
+      headers.forEach((header, i) => {
+        doc.rect(x, y, colWidths[i], 20).stroke();
+        doc.text(header, x + 5, y + 5, { width: colWidths[i] - 10 });
+        x += colWidths[i];
+      });
+      y += 20;
+
+      doc.font('Helvetica');
+      for (const event of events) {
+        const rounds = await storage.getRoundsByEvent(event.id);
+        const eventParticipants = await storage.getParticipantsByEvent(event.id);
+        const leaderboard = await storage.getEventLeaderboard(event.id);
+        
+        const completionRate = eventParticipants.length > 0
+          ? ((leaderboard.length / eventParticipants.length) * 100).toFixed(2)
+          : '0';
+
+        x = 50;
+        const rowData = [
+          event.name,
+          event.type,
+          eventParticipants.length.toString(),
+          rounds.length.toString(),
+          `${completionRate}%`
+        ];
+
+        rowData.forEach((data, i) => {
+          doc.rect(x, y, colWidths[i], 20).stroke();
+          doc.text(data, x + 5, y + 5, { width: colWidths[i] - 10 });
+          x += colWidths[i];
+        });
+        y += 20;
+
+        if (y > 500) {
+          doc.addPage();
+          y = 50;
+        }
+      }
+
+      doc.addPage();
+      doc.fontSize(14).font('Helvetica-Bold').text('Top Performers', { underline: true });
+      doc.moveDown(0.5);
+
+      const userScores = new Map<string, { name: string; totalScore: number; eventsCount: number }>();
+
+      for (const event of events) {
+        const leaderboard = await storage.getEventLeaderboard(event.id);
+        
+        for (const entry of leaderboard) {
+          const existing = userScores.get(entry.userId);
+          if (existing) {
+            existing.totalScore += entry.totalScore || 0;
+            existing.eventsCount += 1;
+          } else {
+            userScores.set(entry.userId, {
+              name: entry.userName,
+              totalScore: entry.totalScore || 0,
+              eventsCount: 1
+            });
+          }
+        }
+      }
+
+      const topPerformers = Array.from(userScores.values())
+        .sort((a, b) => b.totalScore - a.totalScore)
+        .slice(0, 20);
+
+      y = doc.y;
+      const tpHeaders = ['Rank', 'Name', 'Total Score', 'Events'];
+      const tpColWidths = [60, 200, 120, 100];
+      x = 50;
+
+      doc.fontSize(9).font('Helvetica-Bold');
+      tpHeaders.forEach((header, i) => {
+        doc.rect(x, y, tpColWidths[i], 20).stroke();
+        doc.text(header, x + 5, y + 5, { width: tpColWidths[i] - 10 });
+        x += tpColWidths[i];
+      });
+      y += 20;
+
+      doc.font('Helvetica');
+      topPerformers.forEach((performer, index) => {
+        x = 50;
+        const rowData = [
+          (index + 1).toString(),
+          performer.name,
+          performer.totalScore.toString(),
+          performer.eventsCount.toString()
+        ];
+
+        rowData.forEach((data, i) => {
+          doc.rect(x, y, tpColWidths[i], 20).stroke();
+          doc.text(data, x + 5, y + 5, { width: tpColWidths[i] - 10 });
+          x += tpColWidths[i];
+        });
+        y += 20;
+
+        if (y > 500) {
+          doc.addPage();
+          y = 50;
+        }
+      });
+
+      doc.end();
+    } catch (error) {
+      console.error("Export symposium PDF error:", error);
+      res.status(500).json({ message: "Failed to generate Symposium PDF report" });
     }
   });
 

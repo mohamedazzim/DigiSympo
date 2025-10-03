@@ -163,3 +163,31 @@ export async function requireRoundAccess(req: AuthRequest, res: Response, next: 
 
   return res.status(403).json({ message: "Access denied" });
 }
+
+export async function requireEventAdminOrSuperAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+
+  if (req.user.role === "super_admin") {
+    return next();
+  }
+
+  const eventId = req.params.eventId;
+  if (!eventId) {
+    return res.status(400).json({ message: "Event ID is required" });
+  }
+
+  if (req.user.role === "event_admin") {
+    const admins = await storage.getEventAdminsByEvent(eventId);
+    const isAssigned = admins.some(admin => admin.id === req.user!.id);
+    
+    if (!isAssigned) {
+      return res.status(403).json({ message: "You are not assigned to this event" });
+    }
+    
+    return next();
+  }
+
+  return res.status(403).json({ message: "Access denied" });
+}
