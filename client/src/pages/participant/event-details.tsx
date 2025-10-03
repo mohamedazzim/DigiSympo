@@ -29,6 +29,7 @@ export default function ParticipantEventDetailsPage() {
   const { data: rounds, isLoading: roundsLoading } = useQuery<Round[]>({
     queryKey: ['/api/events', eventId, 'rounds'],
     enabled: !!eventId,
+    refetchInterval: 5000,
   });
 
   const registerMutation = useMutation({
@@ -175,13 +176,32 @@ export default function ParticipantEventDetailsPage() {
                             </div>
                           </div>
                           <div className="flex-shrink-0 ml-4">
-                            <Button
-                              onClick={() => startTestMutation.mutate()}
-                              disabled={startTestMutation.isPending || round.status !== 'active'}
-                              data-testid={`button-start-test-${round.id}`}
-                            >
-                              {startTestMutation.isPending ? 'Starting...' : 'Start Test'}
-                            </Button>
+                            {round.status === 'not_started' && (
+                              <Button
+                                disabled
+                                data-testid={`button-start-test-${round.id}`}
+                              >
+                                Not Started
+                              </Button>
+                            )}
+                            {round.status === 'in_progress' && (
+                              <Button
+                                onClick={() => startTestMutation.mutate()}
+                                disabled={startTestMutation.isPending}
+                                data-testid={`button-start-test-${round.id}`}
+                              >
+                                {startTestMutation.isPending ? 'Starting...' : 'Take Test'}
+                              </Button>
+                            )}
+                            {round.status === 'completed' && (
+                              <Button
+                                variant="outline"
+                                disabled
+                                data-testid={`button-start-test-${round.id}`}
+                              >
+                                Completed
+                              </Button>
+                            )}
                           </div>
                         </div>
                       );

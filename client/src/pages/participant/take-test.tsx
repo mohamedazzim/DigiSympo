@@ -59,6 +59,21 @@ export default function TakeTestPage() {
     enabled: !!attempt?.roundId,
   });
 
+  const { data: currentRound } = useQuery<Round>({
+    queryKey: ['/api/rounds', attempt?.roundId],
+    queryFn: async () => {
+      if (!attempt?.roundId) return null;
+      const response = await fetch(`/api/rounds/${attempt.roundId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      return response.json();
+    },
+    enabled: !!attempt?.roundId && hasStarted,
+    refetchInterval: 5000,
+  });
+
   const { data: participant } = useQuery<Participant | null>({
     queryKey: ['/api/participants/my-registrations', attempt?.userId, attempt?.round?.eventId],
     queryFn: async () => {
@@ -128,6 +143,18 @@ export default function TakeTestPage() {
       setTimeRemaining(remaining);
     }
   }, [attempt]);
+
+  // Auto-submit when round is ended by admin
+  useEffect(() => {
+    if (currentRound?.status === 'completed' && attempt?.status === 'in_progress' && hasStarted) {
+      toast({
+        title: 'Round Ended',
+        description: 'The admin has ended this round. Your test will be auto-submitted.',
+        variant: 'destructive',
+      });
+      setTimeout(() => submitTestMutation.mutate(), 2000);
+    }
+  }, [currentRound?.status, attempt?.status, hasStarted, submitTestMutation, toast]);
 
   // Timer countdown with warnings
   useEffect(() => {

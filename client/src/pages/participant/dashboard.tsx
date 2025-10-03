@@ -19,11 +19,12 @@ export default function ParticipantDashboard() {
 
   const { data: credentialData, isLoading } = useQuery<any>({
     queryKey: ['/api/participants/my-credential'],
+    refetchInterval: 5000,
   });
 
   const { credential, event, eventRules, rounds } = credentialData || {};
   const testEnabled = credential?.testEnabled || false;
-  const activeRounds = rounds?.filter((r: any) => r.status === 'active') || [];
+  const activeRounds = rounds?.filter((r: any) => r.status === 'in_progress') || [];
   const hasActiveRounds = activeRounds.length > 0;
 
   const startTestMutation = useMutation({
@@ -106,7 +107,7 @@ export default function ParticipantDashboard() {
           <Alert className="mb-6" data-testid="alert-no-active-rounds">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              No active rounds available at the moment. Please wait for the admin to activate a round.
+              No rounds in progress at the moment. Please wait for the admin to start a round.
             </AlertDescription>
           </Alert>
         )}

@@ -27,9 +27,7 @@ export default function EventRoundsPage() {
 
   const startRoundMutation = useMutation({
     mutationFn: async (roundId: string) => {
-      return apiRequest('PATCH', `/api/rounds/${roundId}`, {
-        status: 'active'
-      });
+      return apiRequest('POST', `/api/rounds/${roundId}/start`, {});
     },
     onSuccess: () => {
       toast({
@@ -49,9 +47,7 @@ export default function EventRoundsPage() {
 
   const endRoundMutation = useMutation({
     mutationFn: async (roundId: string) => {
-      return apiRequest('PATCH', `/api/rounds/${roundId}`, {
-        status: 'completed'
-      });
+      return apiRequest('POST', `/api/rounds/${roundId}/end`, {});
     },
     onSuccess: () => {
       toast({
@@ -71,14 +67,20 @@ export default function EventRoundsPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
-      upcoming: 'secondary',
-      active: 'default',
+      not_started: 'secondary',
+      in_progress: 'default',
       completed: 'destructive',
+    };
+
+    const labels: Record<string, string> = {
+      not_started: 'Not Started',
+      in_progress: 'In Progress',
+      completed: 'Completed',
     };
 
     return (
       <Badge variant={variants[status] || 'default'}>
-        {status}
+        {labels[status] || status}
       </Badge>
     );
   };
@@ -152,7 +154,6 @@ export default function EventRoundsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Duration</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Start Time</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -165,12 +166,9 @@ export default function EventRoundsPage() {
                       <TableCell>{round.name}</TableCell>
                       <TableCell>{round.duration} minutes</TableCell>
                       <TableCell>{getStatusBadge(round.status)}</TableCell>
-                      <TableCell>
-                        {round.startTime ? new Date(round.startTime).toLocaleString() : 'Not scheduled'}
-                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          {round.status === 'upcoming' && (
+                          {round.status === 'not_started' && (
                             <Button
                               variant="default"
                               size="sm"
@@ -183,7 +181,7 @@ export default function EventRoundsPage() {
                               Start
                             </Button>
                           )}
-                          {round.status === 'active' && (
+                          {round.status === 'in_progress' && (
                             <Button
                               variant="destructive"
                               size="sm"

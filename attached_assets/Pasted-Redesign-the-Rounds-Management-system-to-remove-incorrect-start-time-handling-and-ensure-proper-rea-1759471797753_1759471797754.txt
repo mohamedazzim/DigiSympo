@@ -1,0 +1,97 @@
+Redesign the Rounds Management system to remove incorrect start time handling and ensure proper, real-time synchronization of round status between Event Admin Dashboard and Participants UI.
+
+🔍 Current Problems
+
+Start Time Misuse
+
+Start time is shown automatically at round creation, even before admin starts the test.
+
+Creates confusion because participants see Not Started while admin sees a timestamp.
+
+Broken Status Sync
+
+Admin clicking End Test shows Completed only in their view.
+
+Participants still see Not Started, meaning status API is not linked correctly.
+
+No Live Updates
+
+Participant UI does not refresh when admin changes status.
+
+Manual reload is required to see updates.
+
+✅ Proposed Fix
+1. Remove Start Time Field
+
+Eliminate start time display from both UI & API responses.
+
+Backend should no longer auto-generate startTime.
+
+Instead, only track timestamps internally (startedAt, endedAt) for logs/analytics, not for UI display.
+
+2. Define Round Status Lifecycle
+
+Each round must strictly follow these 3 states:
+
+Not Started → Default status when round is created.
+
+In Progress → Set when Event Admin clicks "Begin Test".
+
+Completed → Set when Event Admin clicks "End Test".
+
+3. API Changes
+
+Round Schema (Updated)
+
+{
+  "roundId": "123",
+  "name": "Preliminary Round",
+  "duration": "60 minutes",
+  "status": "not_started",   // not_started | in_progress | completed
+  "participants": 25,
+  "startedAt": null,
+  "endedAt": null
+}
+
+
+POST /rounds/:id/start → Sets status = in_progress, updates startedAt.
+
+POST /rounds/:id/end → Sets status = completed, updates endedAt.
+
+4. UI Changes
+
+Admin Dashboard (Rounds Page)
+
+Show: Round #, Name, Duration, Status.
+
+Remove: Start Time field.
+
+Actions:
+
+Start Round (visible only if status = not_started).
+
+End Round (visible only if status = in_progress).
+
+Participant View
+
+If status = not_started → "Round not yet started." (test locked).
+
+If status = in_progress → Unlock test UI.
+
+If status = completed → Auto-submit answers + show "Round Completed / View Results".
+
+5. Real-Time Sync
+
+Use WebSocket or polling API (5s refresh) so participants get instant updates.
+
+When admin starts/ends a round, participants should see changes immediately without refresh.
+
+📈 Expected Outcome
+
+Start Time confusion removed completely.
+
+Admin and Participant views always in sync.
+
+Clear, consistent 3-step lifecycle for rounds.
+
+Smooth experience: when admin clicks "Begin Test", participants’ test starts instantly; when admin clicks "End Test", participants’ test ends and results view is enabled.

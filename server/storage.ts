@@ -34,6 +34,7 @@ export interface IStorage {
   getRound(id: string): Promise<Round | undefined>;
   createRound(round: InsertRound): Promise<Round>;
   updateRound(id: string, round: Partial<InsertRound>): Promise<Round | undefined>;
+  updateRoundStatus(roundId: string, status: 'not_started' | 'in_progress' | 'completed', timestamp?: Date): Promise<Round | undefined>;
   deleteRound(id: string): Promise<void>;
 
   getRoundRules(roundId: string): Promise<RoundRules | undefined>;
@@ -257,6 +258,19 @@ export class DatabaseStorage implements IStorage {
 
   async updateRound(id: string, updateData: Partial<InsertRound>): Promise<Round | undefined> {
     const [round] = await db.update(rounds).set({ ...updateData, updatedAt: new Date() }).where(eq(rounds.id, id)).returning();
+    return round;
+  }
+
+  async updateRoundStatus(roundId: string, status: 'not_started' | 'in_progress' | 'completed', timestamp?: Date): Promise<Round | undefined> {
+    const updateData: any = { status, updatedAt: new Date() };
+    
+    if (status === 'in_progress') {
+      updateData.startedAt = timestamp || new Date();
+    } else if (status === 'completed') {
+      updateData.endedAt = timestamp || new Date();
+    }
+    
+    const [round] = await db.update(rounds).set(updateData).where(eq(rounds.id, roundId)).returning();
     return round;
   }
 

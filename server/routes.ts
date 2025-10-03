@@ -628,7 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         duration,
         startTime: startTime ? new Date(startTime) : null,
         endTime: endTime ? new Date(endTime) : null,
-        status: status || 'upcoming'
+        status: status || 'not_started'
       });
 
       await storage.createRoundRules({
@@ -670,6 +670,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(round);
     } catch (error) {
       console.error("Update round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/rounds/:roundId/start", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const round = await storage.getRound(req.params.roundId);
+      if (!round) {
+        return res.status(404).json({ message: "Round not found" });
+      }
+
+      if (round.status !== 'not_started') {
+        return res.status(400).json({ message: "Round can only be started when status is 'not_started'" });
+      }
+
+      const updatedRound = await storage.updateRoundStatus(req.params.roundId, 'in_progress');
+      res.json(updatedRound);
+    } catch (error) {
+      console.error("Start round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/rounds/:roundId/end", requireAuth, requireRoundAccess, async (req: AuthRequest, res: Response) => {
+    try {
+      const round = await storage.getRound(req.params.roundId);
+      if (!round) {
+        return res.status(404).json({ message: "Round not found" });
+      }
+
+      if (round.status !== 'in_progress') {
+        return res.status(400).json({ message: "Round can only be ended when status is 'in_progress'" });
+      }
+
+      const updatedRound = await storage.updateRoundStatus(req.params.roundId, 'completed');
+      res.json(updatedRound);
+    } catch (error) {
+      console.error("End round error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

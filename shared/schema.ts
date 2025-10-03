@@ -63,7 +63,9 @@ export const rounds = pgTable("rounds", {
   duration: integer("duration").notNull(), // in minutes
   startTime: timestamp("start_time"),
   endTime: timestamp("end_time"),
-  status: text("status").notNull().default('upcoming'), // upcoming, active, completed
+  status: text("status").notNull().default('not_started'), // not_started, in_progress, completed
+  startedAt: timestamp("started_at"), // When admin starts the round
+  endedAt: timestamp("ended_at"), // When admin ends the round
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
