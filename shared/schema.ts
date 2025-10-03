@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -200,6 +200,29 @@ export const eventCredentials = pgTable("event_credentials", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Audit Logs - track super admin override actions
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId: varchar("admin_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
+  adminUsername: text("admin_username").notNull(),
+  action: text("action").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: varchar("target_id").notNull(),
+  targetName: text("target_name"),
+  changes: jsonb("changes"),
+  reason: text("reason"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  ipAddress: text("ip_address"),
+});
+
+// Relations
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  admin: one(users, {
+    fields: [auditLogs.adminId],
+    references: [users.id],
+  }),
+}));
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -273,6 +296,11 @@ export const insertEventCredentialSchema = createInsertSchema(eventCredentials).
   createdAt: true,
 });
 
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -314,3 +342,6 @@ export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;
 
 export type EventCredential = typeof eventCredentials.$inferSelect;
 export type InsertEventCredential = z.infer<typeof insertEventCredentialSchema>;
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;

@@ -9,7 +9,8 @@ import {
   LayoutDashboard,
   LogOut,
   FormInput,
-  UserCheck
+  UserCheck,
+  ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Registration Committee', href: '/admin/registration-committee', icon: UserCheck },
   { name: 'Registrations', href: '/admin/registrations', icon: FileText },
   { name: 'Reports', href: '/admin/reports', icon: FileText },
+  { name: 'Super Admin Overrides', href: '/admin/super-admin-overrides', icon: ShieldAlert },
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {

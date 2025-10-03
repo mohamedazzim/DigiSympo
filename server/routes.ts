@@ -83,6 +83,37 @@ async function validateEventSelection(eventIds: string[]): Promise<{ valid: bool
   return { valid: true };
 }
 
+async function logSuperAdminAction(
+  adminId: string,
+  adminUsername: string,
+  action: string,
+  targetType: string,
+  targetId: string,
+  targetName: string | null,
+  changes: any | null,
+  reason: string | null,
+  ipAddress: string | null
+) {
+  await storage.createAuditLog({
+    adminId,
+    adminUsername,
+    action,
+    targetType,
+    targetId,
+    targetName,
+    changes,
+    reason,
+    ipAddress
+  });
+}
+
+const getClientIp = (req: Request) => {
+  return req.headers['x-forwarded-for']?.toString().split(',')[0] || 
+         req.headers['x-real-ip']?.toString() ||
+         req.connection.remoteAddress || 
+         null;
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/users", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
@@ -2703,6 +2734,318 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Export symposium PDF error:", error);
       res.status(500).json({ message: "Failed to generate Symposium PDF report" });
+    }
+  });
+
+  // ==================== Super Admin Override Routes ====================
+  
+  // PUT /api/super-admin/events/:eventId/override - Update any event
+  app.put("/api/super-admin/events/:eventId/override", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const { name, description, type, category, status, reason } = req.body;
+      const user = req.user!;
+      const ipAddress = getClientIp(req);
+
+      // Get existing event
+      const existingEvent = await storage.getEvent(eventId);
+      if (!existingEvent) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Prepare update data
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (description !== undefined) updateData.description = description;
+      if (type !== undefined) updateData.type = type;
+      if (category !== undefined) updateData.category = category;
+      if (status !== undefined) updateData.status = status;
+
+      // Store before/after values
+      const before = {
+        name: existingEvent.name,
+        description: existingEvent.description,
+        type: existingEvent.type,
+        category: existingEvent.category,
+        status: existingEvent.status
+      };
+
+      // Update event
+      const updatedEvent = await storage.updateEvent(eventId, updateData);
+      if (!updatedEvent) {
+        return res.status(500).json({ message: "Failed to update event" });
+      }
+
+      const after = {
+        name: updatedEvent.name,
+        description: updatedEvent.description,
+        type: updatedEvent.type,
+        category: updatedEvent.category,
+        status: updatedEvent.status
+      };
+
+      // Log audit entry
+      await logSuperAdminAction(
+        user.id,
+        user.username,
+        'override_event',
+        'event',
+        eventId,
+        updatedEvent.name,
+        { before, after },
+        reason || null,
+        ipAddress
+      );
+
+      res.json(updatedEvent);
+    } catch (error) {
+      console.error("Override event error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // DELETE /api/super-admin/events/:eventId/override - Delete any event
+  app.delete("/api/super-admin/events/:eventId/override", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const { reason } = req.body;
+      const user = req.user!;
+      const ipAddress = getClientIp(req);
+
+      // Get existing event details
+      const existingEvent = await storage.getEvent(eventId);
+      if (!existingEvent) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Delete event
+      await storage.deleteEvent(eventId);
+
+      // Log audit entry
+      await logSuperAdminAction(
+        user.id,
+        user.username,
+        'delete_event',
+        'event',
+        eventId,
+        existingEvent.name,
+        null,
+        reason || null,
+        ipAddress
+      );
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete event override error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // PUT /api/super-admin/questions/:questionId/override - Update any question
+  app.put("/api/super-admin/questions/:questionId/override", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { questionId } = req.params;
+      const { questionText, points, correctAnswer, options, expectedOutput, testCases, reason, ...otherFields } = req.body;
+      const user = req.user!;
+      const ipAddress = getClientIp(req);
+
+      // Get existing question
+      const existingQuestion = await storage.getQuestion(questionId);
+      if (!existingQuestion) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+
+      // Get round and event info for context
+      const round = await storage.getRound(existingQuestion.roundId);
+      const event = round ? await storage.getEvent(round.eventId) : null;
+      const targetName = `${event?.name || 'Unknown Event'} - ${round?.name || 'Unknown Round'} - Q${existingQuestion.questionNumber}`;
+
+      // Prepare update data
+      const updateData: any = { ...otherFields };
+      if (questionText !== undefined) updateData.questionText = questionText;
+      if (points !== undefined) updateData.points = points;
+      if (correctAnswer !== undefined) updateData.correctAnswer = correctAnswer;
+      if (options !== undefined) updateData.options = options;
+      if (expectedOutput !== undefined) updateData.expectedOutput = expectedOutput;
+      if (testCases !== undefined) updateData.testCases = testCases;
+
+      // Store before/after values
+      const before = {
+        questionText: existingQuestion.questionText,
+        points: existingQuestion.points,
+        correctAnswer: existingQuestion.correctAnswer,
+        options: existingQuestion.options,
+        expectedOutput: existingQuestion.expectedOutput,
+        testCases: existingQuestion.testCases
+      };
+
+      // Update question
+      const updatedQuestion = await storage.updateQuestion(questionId, updateData);
+      if (!updatedQuestion) {
+        return res.status(500).json({ message: "Failed to update question" });
+      }
+
+      const after = {
+        questionText: updatedQuestion.questionText,
+        points: updatedQuestion.points,
+        correctAnswer: updatedQuestion.correctAnswer,
+        options: updatedQuestion.options,
+        expectedOutput: updatedQuestion.expectedOutput,
+        testCases: updatedQuestion.testCases
+      };
+
+      // Log audit entry
+      await logSuperAdminAction(
+        user.id,
+        user.username,
+        'override_question',
+        'question',
+        questionId,
+        targetName,
+        { before, after },
+        reason || null,
+        ipAddress
+      );
+
+      res.json(updatedQuestion);
+    } catch (error) {
+      console.error("Override question error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // DELETE /api/super-admin/questions/:questionId/override - Delete any question
+  app.delete("/api/super-admin/questions/:questionId/override", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { questionId } = req.params;
+      const { reason } = req.body;
+      const user = req.user!;
+      const ipAddress = getClientIp(req);
+
+      // Get existing question details
+      const existingQuestion = await storage.getQuestion(questionId);
+      if (!existingQuestion) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+
+      // Delete question
+      await storage.deleteQuestion(questionId);
+
+      // Log audit entry
+      await logSuperAdminAction(
+        user.id,
+        user.username,
+        'delete_question',
+        'question',
+        questionId,
+        existingQuestion.questionText,
+        null,
+        reason || null,
+        ipAddress
+      );
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete question override error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // PUT /api/super-admin/rounds/:roundId/override - Override round settings
+  app.put("/api/super-admin/rounds/:roundId/override", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { roundId } = req.params;
+      const { duration, startTime, endTime, status, reason } = req.body;
+      const user = req.user!;
+      const ipAddress = getClientIp(req);
+
+      // Get existing round
+      const existingRound = await storage.getRound(roundId);
+      if (!existingRound) {
+        return res.status(404).json({ message: "Round not found" });
+      }
+
+      // Get event info for context
+      const event = await storage.getEvent(existingRound.eventId);
+      const targetName = `${event?.name || 'Unknown Event'} - ${existingRound.name}`;
+
+      // Prepare update data
+      const updateData: any = {};
+      if (duration !== undefined) updateData.duration = duration;
+      if (startTime !== undefined) updateData.startTime = startTime;
+      if (endTime !== undefined) updateData.endTime = endTime;
+      if (status !== undefined) updateData.status = status;
+
+      // Store before/after values
+      const before = {
+        duration: existingRound.duration,
+        startTime: existingRound.startTime,
+        endTime: existingRound.endTime,
+        status: existingRound.status
+      };
+
+      // Update round
+      const updatedRound = await storage.updateRound(roundId, updateData);
+      if (!updatedRound) {
+        return res.status(500).json({ message: "Failed to update round" });
+      }
+
+      const after = {
+        duration: updatedRound.duration,
+        startTime: updatedRound.startTime,
+        endTime: updatedRound.endTime,
+        status: updatedRound.status
+      };
+
+      // Log audit entry
+      await logSuperAdminAction(
+        user.id,
+        user.username,
+        'override_round',
+        'round',
+        roundId,
+        targetName,
+        { before, after },
+        reason || null,
+        ipAddress
+      );
+
+      res.json(updatedRound);
+    } catch (error) {
+      console.error("Override round error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // GET /api/super-admin/audit-logs - Retrieve audit logs with filters
+  app.get("/api/super-admin/audit-logs", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { adminId, targetType, startDate, endDate } = req.query;
+
+      const filters: any = {};
+      if (adminId) filters.adminId = adminId as string;
+      if (targetType) filters.targetType = targetType as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+
+      const logs = await storage.getAuditLogs(filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Get audit logs error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // GET /api/super-admin/audit-logs/target/:targetType/:targetId - Get audit history for a specific resource
+  app.get("/api/super-admin/audit-logs/target/:targetType/:targetId", requireAuth, requireSuperAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+      const { targetType, targetId } = req.params;
+
+      const logs = await storage.getAuditLogsByTarget(targetType, targetId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Get audit logs by target error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 

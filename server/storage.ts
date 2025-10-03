@@ -1,7 +1,7 @@
-import { eq, and, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import { db } from './db';
-import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports, registrationForms, registrations, eventCredentials } from '@shared/schema';
-import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport, RegistrationForm, InsertRegistrationForm, Registration, InsertRegistration, EventCredential, InsertEventCredential } from '@shared/schema';
+import { users, events, eventAdmins, eventRules, rounds, roundRules, questions, participants, testAttempts, answers, reports, registrationForms, registrations, eventCredentials, auditLogs } from '@shared/schema';
+import type { User, InsertUser, Event, InsertEvent, EventRules, InsertEventRules, Round, InsertRound, RoundRules, InsertRoundRules, Question, InsertQuestion, Participant, InsertParticipant, TestAttempt, InsertTestAttempt, Answer, InsertAnswer, Report, InsertReport, RegistrationForm, InsertRegistrationForm, Registration, InsertRegistration, EventCredential, InsertEventCredential, AuditLog, InsertAuditLog } from '@shared/schema';
 
 export interface IStorage {
   getUsers(): Promise<User[]>;
@@ -103,6 +103,10 @@ export interface IStorage {
   getOnSpotParticipantsByCreator(creatorId: string): Promise<Array<User & { eventCredentials: Array<EventCredential & { event: Event }> }>>;
   updateUserDetails(userId: string, updates: { fullName?: string; email?: string; phone?: string }): Promise<User | undefined>;
   getEventCredentialCountForEvent(eventId: string): Promise<number>;
+  
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(filters?: { adminId?: string; targetType?: string; startDate?: Date; endDate?: Date }): Promise<AuditLog[]>;
+  getAuditLogsByTarget(targetType: string, targetId: string): Promise<AuditLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1112,6 +1116,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(eventCredentials.eventId, eventId));
     
     return result[0]?.count || 0;
+  }
+
+  async createAuditLog(insertLog: InsertAuditLog): Promise<AuditLog> {
+    const [log] = await db.insert(auditLogs).values(insertLog).returning();
+    return log;
+  }
+
+  async getAuditLogs(filters?: { adminId?: string; targetType?: string; startDate?: Date; endDate?: Date }): Promise<AuditLog[]> {
+    let query = db.select().from(auditLogs);
+    
+    const conditions = [];
+    if (filters?.adminId) conditions.push(eq(auditLogs.adminId, filters.adminId));
+    if (filters?.targetType) conditions.push(eq(auditLogs.targetType, filters.targetType));
+    if (filters?.startDate) conditions.push(gte(auditLogs.timestamp, filters.startDate));
+    if (filters?.endDate) conditions.push(lte(auditLogs.timestamp, filters.endDate));
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    return await query.orderBy(desc(auditLogs.timestamp));
+  }
+
+  async getAuditLogsByTarget(targetType: string, targetId: string): Promise<AuditLog[]> {
+    return await db.select().from(auditLogs)
+      .where(and(eq(auditLogs.targetType, targetType), eq(auditLogs.targetId, targetId)))
+      .orderBy(desc(auditLogs.timestamp));
   }
 }
 
