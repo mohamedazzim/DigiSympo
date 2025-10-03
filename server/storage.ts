@@ -263,19 +263,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateRoundStatus(roundId: string, status: 'not_started' | 'in_progress' | 'completed', timestamp?: Date | null): Promise<Round | undefined> {
-    const updateData: any = { status, updatedAt: new Date() };
-    
     if (status === 'in_progress') {
-      updateData.startedAt = timestamp || new Date();
+      const [round] = await db.update(rounds)
+        .set({ 
+          status: 'in_progress',
+          startedAt: timestamp || new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(rounds.id, roundId))
+        .returning();
+      return round;
     } else if (status === 'completed') {
-      updateData.endedAt = timestamp || new Date();
+      const [round] = await db.update(rounds)
+        .set({ 
+          status: 'completed',
+          endedAt: timestamp || new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(rounds.id, roundId))
+        .returning();
+      return round;
     } else if (status === 'not_started') {
-      updateData.startedAt = null;
-      updateData.endedAt = null;
+      const [round] = await db.update(rounds)
+        .set({ 
+          status: 'not_started',
+          startedAt: null,
+          endedAt: null,
+          updatedAt: new Date()
+        })
+        .where(eq(rounds.id, roundId))
+        .returning();
+      return round;
     }
-    
-    const [round] = await db.update(rounds).set(updateData).where(eq(rounds.id, roundId)).returning();
-    return round;
+    return undefined;
   }
 
   async deleteRound(id: string): Promise<void> {

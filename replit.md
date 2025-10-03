@@ -27,7 +27,7 @@ The Symposium Management System is a React-based web application designed for ma
 - **BACKEND IMPLEMENTATION:**
   - ✅ Added POST /api/rounds/:roundId/restart endpoint
   - ✅ Created deleteTestAttemptsByRound() method in storage layer
-  - ✅ Updated updateRoundStatus() to accept null timestamps for reset
+  - ✅ Fixed updateRoundStatus() to properly handle null timestamps with explicit Drizzle ORM updates
   - ✅ Proper authentication and authorization validation
 - **FRONTEND IMPLEMENTATION:**
   - ✅ Added "Restart Round" button with RotateCcw icon
@@ -39,7 +39,11 @@ The Symposium Management System is a React-based web application designed for ma
   - All participant attempts are wiped clean
   - Round returns to 'not_started' status
   - Admin can then click "Start Round" to begin fresh test session
-- **TESTING:** All requirements verified by architect, no regressions, zero LSP errors
+- **BUG FIX (October 3, 2025):**
+  - ✅ Fixed database update issue where restart was showing success toast but not updating status
+  - ✅ Refactored updateRoundStatus() method to use explicit Drizzle ORM set operations for each status
+  - ✅ Now properly sets status='not_started' and clears startedAt/endedAt timestamps on restart
+- **TESTING:** All requirements verified, database updates confirmed working, zero LSP errors
 
 **October 3, 2025** - Rounds Management System Redesign - Real-Time Status Sync ✅
 - **MAJOR SYSTEM REDESIGN:**
