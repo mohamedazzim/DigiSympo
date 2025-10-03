@@ -16,6 +16,37 @@ The Symposium Management System is a React-based web application designed for ma
   - Event-centric design: All features focus on managing that single event
   - Enterprise-grade, minimal UI with real-time live results capability
 
+## Recent Changes
+**October 3, 2025** - Event Admin Dashboard Redesign - Single-Event Focus ✅
+- **COMPLETE DASHBOARD REDESIGN:**
+  - ✅ Redesigned Event Admin Dashboard for single-event ownership model
+  - ✅ Each Event Admin now sees ONLY their assigned event (not multi-event summaries)
+  - ✅ Removed: My Events, Active Events, Recent Activity, Quick Actions sections
+  - ✅ Added: Event Name display, Total Participants Count, Manage Settings button, Test Control button
+  - ✅ Enterprise-grade, minimal UI with gradient backgrounds and smooth animations
+- **BACKEND IMPLEMENTATION:**
+  - ✅ Created new endpoint `GET /api/event-admin/my-event`
+  - ✅ Returns single assigned event with participant count
+  - ✅ Properly secured with `requireAuth` and `requireEventAdmin` middleware
+  - ✅ Returns 404 if no event is assigned to the admin
+- **FRONTEND IMPLEMENTATION:**
+  - ✅ Complete redesign of `/event-admin/dashboard` page
+  - ✅ Large prominent Event Name at the top (data-testid="text-event-name")
+  - ✅ Total Participants Count stat card (data-testid="text-participant-count")
+  - ✅ "Manage Settings" button → navigates to `/event-admin/events/{eventId}` (data-testid="button-manage-settings")
+  - ✅ "Test Control" button → navigates to `/event-admin/events/{eventId}/rounds` (data-testid="button-test-control")
+  - ✅ Professional gradient design with hover effects
+  - ✅ Loading and empty states properly handled
+  - ✅ All data-testid attributes added for testing
+- **DESIGN HIGHLIGHTS:**
+  - Enterprise-grade UI with indigo/purple gradient color scheme
+  - Large icons (Settings and Play) in circular gradient backgrounds
+  - Hover effects with shadow and transform animations
+  - Event status badge and category/type information
+  - Responsive grid layout for action buttons
+  - Clean, centered card-based layout
+- **TESTING:** All requirements verified by architect, no regressions, zero LSP errors
+
 ## System Architecture
 
 ### UI/UX Decisions
