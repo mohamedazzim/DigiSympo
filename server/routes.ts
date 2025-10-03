@@ -300,11 +300,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { credential, event, rounds, eventRules, activeRoundRules } = data;
 
       res.json({
-        id: credential.id,
-        eventUsername: credential.eventUsername,
-        testEnabled: credential.testEnabled,
-        enabledAt: credential.enabledAt,
-        participantName: user.fullName,
+        credential: {
+          id: credential.id,
+          eventUsername: credential.eventUsername,
+          testEnabled: credential.testEnabled,
+          enabledAt: credential.enabledAt,
+        },
         event: {
           id: event.id,
           name: event.name,

@@ -43,13 +43,16 @@ The Symposium Management System is a React-based web application designed for ma
   - ✅ Fixed database update issue where restart was showing success toast but not updating status
   - ✅ Refactored updateRoundStatus() method to use explicit Drizzle ORM set operations for each status
   - ✅ Now properly sets status='not_started' and clears startedAt/endedAt timestamps on restart
-- **BUG FIX (October 3, 2025) - Participant Sync Issue:**
-  - ✅ Fixed issue where participant page didn't update after admin started round
-  - ✅ "Start Round" now automatically enables test for all participants (sets testEnabled=true)
-  - ✅ "Restart Round" now automatically disables test for all participants (sets testEnabled=false)
-  - ✅ Participants can now access test immediately when admin starts round (within 5 seconds via polling)
+- **BUG FIX (October 3, 2025) - Participant Sync Issue (RESOLVED):**
+  - ✅ **ROOT CAUSE:** API response structure mismatch - backend returned testEnabled at top level, frontend expected it nested in credential object
+  - ✅ **BACKEND CHANGES:**
+    - "Start Round" now automatically enables test for all participants (sets testEnabled=true)
+    - "Restart Round" now automatically disables test for all participants (sets testEnabled=false)
+    - Fixed /api/participants/my-credential to return credential object nested properly
+  - ✅ **DATA FLOW:** Admin Start Round → Backend sets testEnabled=true → Participant polls within 5 seconds → UI updates
+  - ✅ **VERIFICATION:** Database confirms testEnabled=true after Start Round, API response structure fixed
   - ✅ No separate "Enable Test" action required - starting a round enables it automatically
-- **TESTING:** All requirements verified, database updates confirmed working, zero LSP errors
+- **TESTING:** All requirements verified, database updates confirmed working, API response structure validated, zero LSP errors
 
 **October 3, 2025** - Rounds Management System Redesign - Real-Time Status Sync ✅
 - **MAJOR SYSTEM REDESIGN:**
