@@ -18,6 +18,7 @@ export interface IStorage {
   getEventByName(name: string): Promise<Event | undefined>;
   getEventsByCreator(creatorId: string): Promise<Event[]>;
   getEventsByAdmin(adminId: string): Promise<Event[]>;
+  getEventsWithoutAdmins(): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
   deleteEvent(id: string): Promise<void>;
@@ -210,6 +211,19 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(events, eq(eventAdmins.eventId, events.id))
       .where(eq(eventAdmins.adminId, adminId));
     return result.map(r => r.event);
+  }
+
+  async getEventsWithoutAdmins(): Promise<Event[]> {
+    const eventsWithAdmins = await db
+      .select({ eventId: eventAdmins.eventId })
+      .from(eventAdmins)
+      .groupBy(eventAdmins.eventId);
+    
+    const assignedEventIds = new Set(eventsWithAdmins.map(e => e.eventId));
+    
+    const allEvents = await db.select().from(events);
+    
+    return allEvents.filter(event => !assignedEventIds.has(event.id));
   }
 
   async createEvent(insertEvent: InsertEvent): Promise<Event> {

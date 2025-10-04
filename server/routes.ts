@@ -434,6 +434,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/events/unassigned", requireAuth, async (req: AuthRequest, res: Response) => {
+    try {
+      if (req.user!.role !== "super_admin") {
+        return res.status(403).json({ message: "Only super admins can access this endpoint" });
+      }
+      const events = await storage.getEventsWithoutAdmins();
+      res.json(events);
+    } catch (error) {
+      console.error("Get unassigned events error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/events/for-registration", async (req: Request, res: Response) => {
     try {
       const activeForm = await storage.getActiveRegistrationForm();
