@@ -29,7 +29,7 @@ export default function EventAdminCreatePage() {
   const { toast } = useToast();
 
   const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
-    queryKey: ['/api/events'],
+    queryKey: ['/api/events/unassigned'],
   });
 
   const form = useForm<FormData>({
@@ -64,6 +64,7 @@ export default function EventAdminCreatePage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events/unassigned'] });
 
       toast({
         title: 'Event Admin created',
