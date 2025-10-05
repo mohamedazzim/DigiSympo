@@ -498,7 +498,7 @@ export default function OnSpotRegistrationPage() {
                         <TableCell data-testid={`text-events-${participant.id}`}>
                           <div className="flex flex-wrap gap-1">
                             {participant.eventCredentials && participant.eventCredentials.length > 0 ? (
-                              participant.eventCredentials.map((cred) => (
+                              participant.eventCredentials.map((cred: EventCredential & { event: Event }) => (
                                 <Badge key={cred.id} variant="outline" className="text-xs">
                                   {cred.event.name}
                                 </Badge>
