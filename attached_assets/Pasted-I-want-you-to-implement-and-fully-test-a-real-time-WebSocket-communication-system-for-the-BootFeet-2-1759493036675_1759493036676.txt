@@ -1,0 +1,79 @@
+I want you to implement and fully test a real-time WebSocket communication system for the BootFeet 2K26 Symposium Management System.
+
+🔹 Requirements:
+
+WebSocket Setup
+
+Implement WebSocket support in the backend (Node.js + Express).
+
+Use a scalable approach (e.g., socket.io).
+
+Secure with authentication middleware so only logged-in users can connect.
+
+Real-Time Features
+
+Live updates for:
+
+New participant registrations (Admins see it instantly).
+
+Round/Test status changes (all participants of that event get notified in real-time).
+
+Super Admin overrides (instantly reflect changes across connected clients).
+
+Result publishing (broadcast immediately to respective participants).
+
+Ensure event-based architecture:
+
+"registrationUpdate", "roundStatus", "overrideAction", "resultPublished".
+
+Frontend Integration
+
+Connect frontend with WebSocket client.
+
+Display real-time notifications in UI (toast/snackbar or dashboard updates).
+
+Ensure Event Admins only see updates for their event, while Super Admins see all.
+
+Testing
+
+Use dummy events, participants, and actions to simulate real-time updates.
+
+Test multiple connected clients simultaneously to ensure broadcasts work.
+
+Auto-fix any LSP or runtime errors during development.
+
+Confirm RBAC filtering works (admins only see relevant data).
+
+Write automated tests to check event emissions and client receptions.
+
+Deployment-Ready
+
+Ensure WebSocket works both in development and production mode.
+
+Add reconnection logic for client disconnections.
+
+Document all events and payload structures in /docs/websockets.md.
+
+🔹 Expected Deliverables:
+
+Backend WebSocket setup (socket.io or equivalent).
+
+Middleware for authentication and role-based filtering of events.
+
+Frontend WebSocket integration with real-time UI updates.
+
+Automated test suite for WebSocket events.
+
+Complete documentation of event types and payloads.
+
+🔹 Success Criteria:
+
+Multiple connected clients receive updates instantly.
+
+Event Admins only receive event-specific updates.
+
+Super Admin receives all updates.
+
+No runtime errors, clean code (no LSP issues).
+
+Production-ready, fully tested, and documented.

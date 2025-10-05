@@ -1,0 +1,81 @@
+WebSocket Real-Time Validation & Stress Test Prompt
+
+Objective
+Simulate real-world multi-user scenarios to ensure role-based WebSocket communication works correctly under normal and high-load conditions.
+
+✅ Test Scenarios
+1. Authentication Lifecycle
+
+Start WebSocket connections with valid JWT tokens for:
+
+Super Admin
+
+Event Admin (event:123)
+
+Participants (user:101, user:102)
+
+Test login → auto-connect
+
+Test logout → auto-disconnect
+
+Test expired token → reconnection with refresh
+
+2. RBAC Filtering
+
+Emit registrationUpdate → Only Event Admin of event:123 should receive
+
+Emit roundStatus for event:123 → Only participants of event:123 should receive
+
+Emit overrideAction → Only Super Admins should receive
+
+Emit resultPublished → Only participants tied to that round should receive
+
+3. Message Integrity
+
+Each client must receive only events it is authorized for
+
+No broadcast leaks to wrong roles
+
+Message payload must include timestamp, eventId, and senderRole
+
+4. Stress & Scale
+
+Simulate 200+ concurrent participants joining the same event
+
+Broadcast roundStatus → All participants should update within < 1 second
+
+Monitor dropped connections, lag, or duplicate messages
+
+⚙️ Implementation Plan
+Backend Test Script (server/tests/websocketStressTest.ts)
+
+Use socket.io-client for multiple fake users
+
+Auto-generate JWTs for Super Admin, Event Admin, and 200 participants
+
+Connect all clients
+
+Emit test events from server
+
+Verify received events against RBAC expectations
+
+Frontend Validation
+
+Add temporary debug console logs in WebSocketContext
+
+Show eventName | timestamp | userRole in browser console per received event
+
+Run side-by-side browser sessions (Super Admin, Event Admin, Participant)
+
+📝 Expected Outcomes
+
+Auth Lifecycle: Connections cleanly attach/detach
+
+RBAC: No unauthorized messages
+
+Performance: <1s latency under 200 concurrent clients
+
+Stability: No duplicate or zombie sockets
+
+⚡ Next Step: Run this automated test suite locally and in staging.
+If results match expectations, the WebSocket layer is validated for production scaling. 🚀
